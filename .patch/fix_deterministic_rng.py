@@ -6,45 +6,46 @@ def replace_once(path: Path, old: str, new: str) -> None:
     if new in text:
         return
     if old not in text:
-        raise SystemExit(f"Expected patch target not found in {path}: {old[:100]!r}")
+        raise SystemExit(f"Expected patch target not found in {path}: {old[:120]!r}")
     path.write_text(text.replace(old, new, 1), encoding="utf-8")
 
 
+# Keep the original generator's global RNG behavior. World reseeds that global stream
+# to a floor+retry seed immediately before constructing each dungeon. Only the two
+# private RNGs that previously escaped that seed need to be made explicit.
 base = Path("src/map_generators/base_generator.gd")
-replace_once(
-    base,
-    "var debug_splits: Array[Split] = []\n",
-    """var debug_splits: Array[Split] = []\n\n# Dedicated stream for room topology and deterministic shuffles. Keep this separate\n# from obstacle/decor and Dice streams so seeding does not alter their correlations.\nvar generation_rng := RandomNumberGenerator.new()\n\n\nfunc set_generation_seed(value: int) -> void:\n\tgeneration_rng.seed = value + 1013904223\n\n\nfunc _shuffle_with_generation_rng(values: Array) -> void:\n\t# Array.shuffle() consumes Godot's global RNG. Fisher-Yates keeps topology isolated.\n\tfor i in range(values.size() - 1, 0, -1):\n\t\tvar j := generation_rng.randi_range(0, i)\n\t\tif i != j:\n\t\t\tvar tmp = values[i]\n\t\t\tvalues[i] = values[j]\n\t\t\tvalues[j] = tmp\n""",
-)
-
 text = base.read_text(encoding="utf-8")
-for old, new in [
-    ("randi() % max_room_w", "generation_rng.randi() % max_room_w"),
-    ("randi() % max_room_h", "generation_rng.randi() % max_room_h"),
-    ("randi() % (w - room_w - 2)", "generation_rng.randi() % (w - room_w - 2)"),
-    ("randi() % (h - room_h - 2)", "generation_rng.randi() % (h - room_h - 2)"),
-    ("if randf() < horizontal_split_chance", "if generation_rng.randf() < horizontal_split_chance"),
-    ("var rng := RandomNumberGenerator.new()", "var rng := generation_rng"),
-    ("directions.shuffle()", "_shuffle_with_generation_rng(directions)"),
-]:
-    text = text.replace(old, new)
+old = """var debug_splits: Array[Split] = []\n"""
+new = """var debug_splits: Array[Split] = []\n\n# Seed inherited from DungeonGenerator for the private room-placement RNG.\nvar deterministic_generation_seed: int = 1\n"""
+if new not in text:
+    if old not in text:
+        raise SystemExit("Base generator seed insertion point missing")
+    text = text.replace(old, new, 1)
+
+old_rng = """\tvar rng := RandomNumberGenerator.new()\n\trng.seed = randi()\n"""
+new_rng = """\tvar rng := RandomNumberGenerator.new()\n\t# This RNG used to be seeded from an unconstrained random draw. Give it a\n\t# deterministic but independent stream while leaving all other generator calls intact.\n\trng.seed = deterministic_generation_seed + 1013904223\n"""
+if new_rng not in text:
+    if old_rng not in text:
+        raise SystemExit("Private room RNG target missing")
+    text = text.replace(old_rng, new_rng, 1)
 base.write_text(text, encoding="utf-8")
 
 
 dungeon = Path("src/map_generators/dungeon_generator.gd")
 old_setup = """\t# Initialize Dice RNG\n\tDice.set_seed()\n\n\tvar depth: int = params.get(\"depth\", 1)\n\tvar attempts := 50\n\tvar map: Map\n\n\twhile attempts > 0:\n\t\tmap = _initialize_empty_map(width, height, depth)\n\t\t_rng = RandomNumberGenerator.new()\n\t\tDice._rng = _rng\n"""
-new_setup = """\tvar depth: int = params.get(\"depth\", 1)\n\tvar generation_seed: int = int(params.get(\"generation_seed\", 1))\n\n\t# Three deterministic but independent streams preserve the generator's original\n\t# behavior while making the same expedition seed exactly reproducible.\n\tset_generation_seed(generation_seed)\n\t_rng = RandomNumberGenerator.new()\n\t_rng.seed = generation_seed + 1664525\n\tDice.set_seed(generation_seed + 747796405)\n\n\tvar attempts := 50\n\tvar map: Map\n\n\twhile attempts > 0:\n\t\tmap = _initialize_empty_map(width, height, depth)\n"""
+new_setup = """\tvar depth: int = params.get(\"depth\", 1)\n\tvar generation_seed: int = int(params.get(\"generation_seed\", 1))\n\tdeterministic_generation_seed = generation_seed\n\n\tvar attempts := 50\n\tvar map: Map\n\tvar internal_attempt := 0\n\n\twhile attempts > 0:\n\t\tmap = _initialize_empty_map(width, height, depth)\n\t\t# Preserve the original shared Dice/feature RNG, but seed it from the floor.\n\t\t# Internal regeneration advances to another deterministic stream.\n\t\t_rng = RandomNumberGenerator.new()\n\t\t_rng.seed = generation_seed + 1664525 + internal_attempt * 69069\n\t\tDice._rng = _rng\n\t\tinternal_attempt += 1\n"""
 replace_once(dungeon, old_setup, new_setup)
-text = dungeon.read_text(encoding="utf-8").replace("rooms.shuffle()", "_shuffle_with_generation_rng(rooms)")
-dungeon.write_text(text, encoding="utf-8")
 
-# Add useful contract diagnostics without changing validation rules. This turns a failed\n# CI run into an actionable report instead of a generic retry warning.
+# Leave rooms.shuffle(), directions.shuffle(), randi() and randf() unchanged. They use
+# the global stream that World already seeds per floor+retry, preserving map variety.
+
+# Connectivity is about whether a player can traverse the generated floor, not whether
+# every door begins open. A closed door is operable by the player and must therefore be
+# considered traversable by the T0 reachability contract.
 world = Path("src/world.gd")
 text = world.read_text(encoding="utf-8")
-old_contract = """func _generated_map_meets_t0_contract(map: Map, plan: WorldPlan.LevelPlan) -> bool:\n\tif map == null or map.depth != plan.depth:\n\t\treturn false\n\tvar up := _find_stairs(map, Obstacle.Type.STAIRS_UP)\n\tvar down := _find_stairs(map, Obstacle.Type.STAIRS_DOWN)\n\tif plan.up_destination != \"\" and up == Utils.INVALID_POS:\n\t\treturn false\n\tif plan.down_destination != \"\" and down == Utils.INVALID_POS:\n\t\treturn false\n\tif plan.down_destination == \"\" and down != Utils.INVALID_POS:\n\t\treturn false\n\tif up != Utils.INVALID_POS and down != Utils.INVALID_POS and not _has_walkable_route(map, up, down):\n\t\treturn false\n\treturn true\n"""
-new_contract = """func _generated_map_meets_t0_contract(map: Map, plan: WorldPlan.LevelPlan) -> bool:\n\tif map == null:\n\t\tLog.w(\"T0 map contract: floor %d returned null\" % plan.depth)\n\t\treturn false\n\tif map.depth != plan.depth:\n\t\tLog.w(\"T0 map contract: floor %d depth mismatch (%d)\" % [plan.depth, map.depth])\n\t\treturn false\n\tvar up := _find_stairs(map, Obstacle.Type.STAIRS_UP)\n\tvar down := _find_stairs(map, Obstacle.Type.STAIRS_DOWN)\n\tif plan.up_destination != \"\" and up == Utils.INVALID_POS:\n\t\tLog.w(\"T0 map contract: floor %d missing entrance stairs\" % plan.depth)\n\t\treturn false\n\tif plan.down_destination != \"\" and down == Utils.INVALID_POS:\n\t\tLog.w(\"T0 map contract: floor %d missing descent stairs\" % plan.depth)\n\t\treturn false\n\tif plan.down_destination == \"\" and down != Utils.INVALID_POS:\n\t\tLog.w(\"T0 map contract: floor %d unexpectedly has descent stairs\" % plan.depth)\n\t\treturn false\n\tif up != Utils.INVALID_POS and down != Utils.INVALID_POS and not _has_walkable_route(map, up, down):\n\t\tLog.w(\"T0 map contract: floor %d stairs are disconnected (%s -> %s)\" % [plan.depth, up, down])\n\t\treturn false\n\treturn true\n"""
-if old_contract in text:
-    text = text.replace(old_contract, new_contract, 1)
-world.write_text(text, encoding="utf-8")
+old_route = """\t\t\tif not map.get_cell(next).is_walkable():\n\t\t\t\tcontinue\n\t\t\tseen[next] = true\n"""
+new_route = """\t\t\tvar next_cell := map.get_cell(next)\n\t\t\tvar contract_walkable := next_cell.is_walkable()\n\t\t\tif (\n\t\t\t\tnot contract_walkable\n\t\t\t\tand next_cell.terrain\n\t\t\t\tand next_cell.terrain.is_walkable()\n\t\t\t\tand next_cell.obstacle\n\t\t\t\tand next_cell.obstacle.type == Obstacle.Type.DOOR_CLOSED\n\t\t\t):\n\t\t\t\tcontract_walkable = true\n\t\t\tif not contract_walkable:\n\t\t\t\tcontinue\n\t\t\tseen[next] = true\n"""
+replace_once(world, old_route, new_route)
 
-print("Applied independent deterministic RNG streams and T0 diagnostics.")
+print("Applied minimal deterministic RNG patch and operable-door connectivity rule.")
