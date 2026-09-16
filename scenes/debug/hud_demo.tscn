@@ -12,7 +12,7 @@
 atlas = ExtResource("4_ypq30")
 region = Rect2(0, 0, 16, 16)
 script = ExtResource("5_smpg8")
-sprite_name = &"banana"
+sprite_name = &"food-16"
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_xhis8"]
 atlas = ExtResource("4_ypq30")
@@ -22,7 +22,7 @@ region = Rect2(720, 64, 16, 16)
 atlas = ExtResource("4_ypq30")
 region = Rect2(0, 0, 16, 16)
 script = ExtResource("5_smpg8")
-sprite_name = &"banana"
+sprite_name = &"food-16"
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_dkfx8"]
 atlas = ExtResource("6_g3jjt")
@@ -144,14 +144,14 @@ layout_mode = 2
 size_flags_vertical = 3
 auto_height = true
 item_count = 4
-item_0/text = "Banana"
+item_0/text = "Food"
 item_0/icon = SubResource("AtlasTexture_xhis8")
 item_0/disabled = true
-item_1/text = "Banana"
+item_1/text = "Food"
 item_1/icon = SubResource("AtlasTexture_mmij0")
-item_2/text = "Banana"
+item_2/text = "Food"
 item_2/icon = SubResource("AtlasTexture_xhis8")
-item_3/text = "Banana"
+item_3/text = "Food"
 item_3/icon = SubResource("AtlasTexture_xhis8")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/AllStuff/TwoCol/LeftCol"]
