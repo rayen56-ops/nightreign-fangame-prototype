@@ -1,0 +1,40 @@
+name: T1 Character QA
+
+on:
+  push:
+    branches: [t1-character-art-pass-v2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  character-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.6.3
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.3-stable_linux.x86_64
+      - name: Clean import
+        run: |
+          set -o pipefail
+          rm -rf .godot
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --editor --import --path . --quit 2>&1 | tee /tmp/t1-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/t1-import.log
+      - name: Preserve T0 regression gate
+        run: |
+          set -o pipefail
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . res://tests/t0_core.tscn --quit-after 1800 2>&1 | tee /tmp/t0.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/t0.log
+          python3 -c "import json; r=json.load(open('docs/T0_QA.json')); assert r['failures']==[] and r['checks']==246"
+      - name: T1 character visual contract
+        run: |
+          set -o pipefail
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . res://tests/t1_character_visual.tscn --quit-after 120 2>&1 | tee /tmp/t1.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/t1.log
+          grep -q 'T1 CHARACTER VISUAL QA' /tmp/t1.log
