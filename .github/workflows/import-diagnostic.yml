@@ -1,16 +1,13 @@
 name: Import Diagnostic
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   diagnose:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -42,7 +39,7 @@ jobs:
           patched_status=$?
           set -e
 
-          mkdir -p docs
+          mkdir -p artifacts/import-diagnostic
           {
             echo "commit=${GITHUB_SHA}"
             echo "base_status=${base_status}"
@@ -57,19 +54,11 @@ jobs:
             echo
             echo "=== PATCHED ERRORS ==="
             grep -nE -C 3 "SCRIPT ERROR|Parse Error|ERROR:|Error" /tmp/patched-import.log || tail -n 120 /tmp/patched-import.log
-          } > docs/import-diagnostic.txt
+          } > artifacts/import-diagnostic/import-diagnostic.txt
 
-      - name: Commit diagnostic
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "nightreign-diagnostic-bot"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -- scenes/game/game.gd
-          git add docs/import-diagnostic.txt
-          if git diff --cached --quiet; then
-            echo "Diagnostic unchanged"
-            exit 0
-          fi
-          git commit -m "CI diagnostic: capture Godot import errors"
-          git push origin HEAD:main
+      - name: Upload diagnostic artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: import-diagnostic-${{ github.sha }}
+          path: artifacts/import-diagnostic
+          retention-days: 7

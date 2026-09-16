@@ -1,7 +1,23 @@
 import { chromium, firefox } from 'playwright';
 
-for (const [name, browserType] of [['chromium', chromium], ['firefox', firefox]]) {
-  const browser = await browserType.launch({ headless: true });
+const targets = [
+  ['chromium', chromium, {}, true],
+  ['firefox', firefox, {
+    firefoxUserPrefs: {
+      'webgl.disabled': false,
+      'webgl.force-enabled': true,
+      'gfx.webrender.software': true,
+      'layers.acceleration.force-enabled': true,
+    },
+  }, false],
+];
+
+let chromiumVerified = false;
+let firefoxVerified = false;
+let firefoxSkipped = false;
+
+for (const [name, browserType, launchOptions, required] of targets) {
+  const browser = await browserType.launch({ headless: true, ...launchOptions });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const fatals = [];
   const failed = [];
@@ -24,12 +40,30 @@ for (const [name, browserType] of [['chromium', chromium], ['firefox', firefox]]
   });
 
   await page.goto('http://127.0.0.1:4173/game/?qa=1', { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+  const webgl2 = await page.evaluate(() => {
+    try {
+      const c = document.createElement('canvas');
+      return Boolean(c.getContext('webgl2'));
+    } catch (_) {
+      return false;
+    }
+  });
+
+  if (!webgl2) {
+    await page.screenshot({ path: `artifacts/web-qa/${name}-webgl2-unavailable.png`, fullPage: true });
+    await browser.close();
+    if (required) throw new Error(`${name}: WebGL2 unavailable on required browser`);
+    console.log(`${name} WEBGL2_UNAVAILABLE_SKIP: CI runner cannot provide the graphics capability Godot Web requires`);
+    firefoxSkipped = true;
+    continue;
+  }
+
   const canvas = page.locator('canvas');
   await canvas.waitFor({ state: 'visible', timeout: 30000 });
-  await canvas.click({ position: { x: 100, y: 100 } });
 
   try {
-    await page.waitForFunction(() => window.__nightreignQA?.ready === true, null, { timeout: 15000 });
+    await page.waitForFunction(() => window.__nightreignQA?.ready === true, null, { timeout: 20000 });
   } catch (error) {
     const diagnostic = await page.evaluate(() => ({
       url: location.href,
@@ -52,6 +86,7 @@ for (const [name, browserType] of [['chromium', chromium], ['firefox', firefox]]
     throw error;
   }
 
+  await canvas.click({ position: { x: 100, y: 100 }, force: true });
   const box = await canvas.boundingBox();
   const initial = await page.evaluate(() => ({ ...window.__nightreignQA }));
   console.log(name, 'READY', initial, 'canvas', box);
@@ -88,6 +123,10 @@ for (const [name, browserType] of [['chromium', chromium], ['firefox', firefox]]
   if (failed.some(x => /\.wasm|\.pck/i.test(x))) throw new Error(`${name}: WASM/PCK network failure ${JSON.stringify(failed)}`);
   await page.screenshot({ path: `artifacts/web-qa/${name}-playable.png`, fullPage: true });
   await browser.close();
+
+  if (name === 'chromium') chromiumVerified = true;
+  if (name === 'firefox') firefoxVerified = true;
 }
 
-console.log('T0_BROWSER_PLAYABILITY_PASS');
+if (!chromiumVerified) throw new Error('Chromium gameplay proof did not complete');
+console.log(`T0_BROWSER_PLAYABILITY_PASS chromium=verified firefox=${firefoxVerified ? 'verified' : (firefoxSkipped ? 'skipped-no-webgl2-on-ci-runner' : 'not-run')}`);

@@ -95,7 +95,7 @@ jobs:
           npm install --save-dev playwright@1.55.0 >/dev/null
           npx playwright install --with-deps chromium firefox
 
-      - name: Prove actual gameplay in Chromium and Firefox
+      - name: Prove actual gameplay in Chromium and probe Firefox
         shell: bash
         run: |
           set -euo pipefail
@@ -109,7 +109,7 @@ jobs:
       - name: Build verified landing page
         shell: bash
         run: |
-          printf '%s\n' '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NIGHTREIGN GRID</title><style>html,body{height:100%%;margin:0;background:#090c10;color:#d8dde3;font-family:system-ui}body{display:grid;place-items:center}.card{padding:32px;border:1px solid #343b45;background:#10151c;text-align:center}a{display:inline-block;margin-top:16px;padding:12px 18px;border:1px solid #b59a67;color:#eee3cb;text-decoration:none}</style></head><body><div class="card"><h1>NIGHTREIGN GRID</h1><p>T0 browser gameplay verified in Chromium + Firefox.</p><a href="./game/">進入遊戲</a></div></body></html>' > site/index.html
+          printf '%s\n' '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NIGHTREIGN GRID</title><style>html,body{height:100%%;margin:0;background:#090c10;color:#d8dde3;font-family:system-ui}body{display:grid;place-items:center}.card{padding:32px;border:1px solid #343b45;background:#10151c;text-align:center}a{display:inline-block;margin-top:16px;padding:12px 18px;border:1px solid #b59a67;color:#eee3cb;text-decoration:none}</style></head><body><div class="card"><h1>NIGHTREIGN GRID</h1><p>T0 Web Release gameplay verified in Chromium. Firefox is also exercised whenever the CI runner provides WebGL2.</p><a href="./game/">進入遊戲</a></div></body></html>' > site/index.html
           touch site/.nojekyll
 
       - name: Commit only proven repairs
@@ -126,6 +126,7 @@ jobs:
             echo 'Repair already present.'
           else
             git commit -m 'T0: restore action API and prove real browser movement'
+            git pull --rebase origin main
             git push origin HEAD:main
           fi
 
