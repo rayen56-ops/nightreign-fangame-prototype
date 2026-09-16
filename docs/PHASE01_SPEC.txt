@@ -1,0 +1,389 @@
+PROJECT_BASE=statico/godot-roguelike-example
+ENGINE=Godot4
+TARGET=2D_PIXEL_GRID_ROGUELIKE
+REFERENCE_GAMEPLAY=Mystery_Dungeon
+PROTOTYPE_CHARACTER=Wylder_ONLY
+
+EXECUTION_POLICY:
+- inspect existing repository before modifying
+- preserve existing turn engine, Action architecture, BSP dungeon generation, FOV, fog, monster AI, pathfinding, inventory, equipment, map/world architecture where compatible
+- do not rewrite working systems without necessity
+- adapt existing architecture incrementally
+- prototype before adding content
+- only one playable character: Wylder
+- no multiplayer
+- no additional Nightfarers
+- no final production art required
+- placeholders permitted
+- all gameplay coordinates remain grid-based
+- visual interpolation/animation MUST NOT alter logical grid state
+
+DISPLAY_ARCHITECTURE:
+
+BASE_LOGICAL_RESOLUTION=576x324
+ASPECT_RATIO=16:9
+ORIENTATION=LANDSCAPE
+
+RATIONALE:
+- retain repository native 576x324 logical viewport
+- treat 576x324 as authoritative gameplay/UI coordinate space
+- never hardcode gameplay against physical monitor/iPhone resolution
+- future iPhone devices use scaling/safe-area adaptation
+- 16:9 gameplay rect remains authoritative even on wider phone displays
+- extra physical display area may later contain letterbox/background/UI extension but must not expose additional gameplay information
+
+DESKTOP_STANDARD_PROFILE:
+logical_resolution=576x324
+window_resolution=1152x648
+scale=2
+resizable=true
+aspect_lock=16:9
+pixel_filter=nearest
+
+DESKTOP_PET_PROFILE:
+logical_resolution=576x324
+window_resolution=576x324
+scale=1
+resizable=false initially
+aspect_lock=16:9
+pixel_filter=nearest
+future_capabilities:
+    borderless=true
+    always_on_top=true
+    movable_window=true
+    transparent_background=optional
+    click_through=optional
+do_not_implement_advanced_pet_features_yet
+architecture_must_not_prevent_them
+
+MOBILE_PROFILE_FUTURE:
+orientation=landscape
+logical_gameplay_rect=576x324
+physical_resolution=dynamic
+do_not_assume_specific_iPhone_model
+respect_safe_area=true
+retain_16_9_gameplay_safe_frame=true
+touch_UI_layer_separate_from_gameplay_layer=true
+gameplay_logic_resolution_independent=true
+
+SCALING:
+desktop_prefer_integer_scaling=true
+desktop_nearest_neighbor=true
+texture_filter=NEAREST
+mipmaps=false_for_pixel_art
+subpixel_character_rendering=false
+camera_pixel_snap=true
+sprites_pixel_snap=true
+avoid_fractional_world_coordinates=true
+
+PROJECT_GODOT_TARGET:
+window/size/viewport_width=576
+window/size/viewport_height=324
+default_desktop_window=1152x648
+preserve_16_9
+remove_current_non_16_9_window_override_if_present
+ensure_pixel_art_scaling
+do_not_change_gameplay_based_on_window_size
+
+WORLD_GRID:
+
+GRID_TILE_SIZE=16x16 logical pixels
+ONE_ACTOR_OCCUPIES=1x1 tile
+movement_step=1 tile
+orthogonal_and_diagonal_grid_movement=true
+logical_coordinates=Vector2i
+world_position=grid_position*16
+all_pathfinding/FOV/AI/combat_range use grid coordinates
+
+VISIBLE_GAME_AREA:
+do_not_require_exact_integer number of visible tiles
+camera centered around player
+UI may occupy edge regions
+partial tiles at viewport edge allowed
+dungeon generation independent from viewport dimensions
+
+ART_MASTER_SPEC:
+
+ENVIRONMENT_BASE_TILE:
+canvas=16x16
+grid_alignment=16
+format=PNG
+alpha=true
+filter=nearest
+
+SUPPORTED_ENVIRONMENT_ASSET_SIZES:
+floor=16x16
+wall_base=16x16
+wall_tall=16x32
+door=16x16 or 16x32
+stairs=16x16
+trap=16x16
+small_prop=16x16
+medium_prop=32x16 or 16x32
+large_prop=32x32
+all assets anchored to 16x16 world grid
+
+PLAYER_WYLDER:
+
+logical_footprint=16x16
+sprite_frame_canvas=32x32
+sprite may visually exceed occupied tile
+feet_anchor=center_of_bottom_world_tile
+pivot_relative_to_frame=(16,24) approximate; adjust after art import
+collision/occupancy remains 16x16 regardless of sprite dimensions
+character sprite must never change grid footprint based on animation
+
+PLAYER_DIRECTION_SET:
+N
+NE
+E
+SE
+S
+SW
+W
+NW
+
+SPRITESHEET_DIRECTION_ORDER:
+S
+SW
+W
+NW
+N
+NE
+E
+SE
+
+PROTOTYPE_ANIMATION_SPEC:
+
+idle:
+frame_size=32x32
+frames_per_direction=2
+directions=8
+visual_only=true
+does_not_consume_turn=true
+
+move:
+frame_size=32x32
+frames_per_direction=4
+directions=8
+logical_result=move_exactly_one_tile
+animation_duration_target=0.08-0.12sec
+turn_resolution_occurs_once
+visual_interpolation_only
+
+melee_attack:
+frame_size=32x32
+frames_per_direction=4
+directions=8
+logical_range=adjacent_tile
+animation_visual_only_after_action_resolution
+
+grappling_claw:
+frame_size=32x32
+frames_per_direction=4
+directions=8
+prototype_animation_placeholder_allowed
+mechanics_not_required_in_phase01 unless trivial
+
+hit:
+frame_size=32x32
+frames_per_direction=2
+directions=8_or_shared
+
+death:
+frame_size=32x32
+frames=4-6
+direction_requirement=shared_allowed_for_prototype
+
+PLAYER_SPRITESHEET_RECOMMENDED_LAYOUT:
+frame=32x32
+one_animation_per_sheet OR atlas with explicit metadata
+do_not_depend_on implicit magic row indexes
+create centralized sprite metadata/resource mapping
+animation definitions must be replaceable without gameplay code changes
+
+WYLDER_VISUAL_READABILITY_REQUIREMENTS:
+recognizable silhouette at 32x32
+large cloak/scarf silhouette
+helmet/head shape readable
+weapon silhouette readable
+grappling_claw may exceed base frame through separate VFX sprite if needed
+do_not attempt detailed realistic Elden Ring proportions
+prioritize silhouette/readability
+character remains visually centered on occupied tile
+
+ITEM_WORLD_SPRITES:
+base_canvas=16x16
+weapon_ground_icon=16x16
+consumable=16x16
+currency/rune=16x16
+chest=16x16 or 16x32
+
+UI_ASSET_SPEC:
+small_icon=16x16
+standard_icon=24x24
+large_icon=32x32
+equipment_icon=32x32
+status_icon=16x16
+character_portrait=96x96
+boss_portrait_future=128x128
+nine_patch/UI panels designed in multiples of 8 pixels
+font pixel-compatible
+UI must be legible at logical 576x324
+
+VFX_SPEC:
+small=16x16
+standard=32x32
+large=48x48 or 64x64
+VFX may exceed grid cell
+VFX never changes logical hit area
+hitbox/AOE defined in grid coordinates separately from VFX texture dimensions
+
+CAMERA:
+grid_based_target
+player_centered_when_possible
+camera final transform pixel-snapped
+no continuous gameplay movement
+optional very short tween between tiles
+tween must not affect turn timing or map occupancy
+camera must support future screenshake without introducing persistent subpixel position
+
+SCENE_LAYER_MODEL:
+WorldFloor
+WorldWalls
+Items
+Actors
+Effects
+Fog
+WorldOverlay
+HUD
+ModalUI
+MobileControls_future
+
+Keep touch UI separate from HUD.
+Do not embed mobile input graphics into world scene.
+
+INPUT_ABSTRACTION:
+gameplay actions must not directly depend on keyboard keys
+maintain Godot InputMap actions
+
+required:
+move_n
+move_ne
+move_e
+move_se
+move_s
+move_sw
+move_w
+move_nw
+wait
+confirm
+cancel
+inventory
+interact
+skill
+ultimate
+
+desktop keyboard maps onto actions
+future touch controls map onto same actions
+future controller maps onto same actions
+
+WINDOW_PROFILE_ARCHITECTURE:
+create centralized display/window configuration rather than scattering resolution constants
+profiles:
+DESKTOP_STANDARD
+DESKTOP_PET
+MOBILE_FUTURE
+
+Switching profile MUST NOT change:
+grid size
+combat
+FOV
+AI
+turn timing
+dungeon generation
+player statistics
+
+FOLDER_TARGET:
+
+res://assets/nightreign/
+characters/wylder/
+environment/
+items/
+ui/
+vfx/
+placeholders/
+
+res://src/nightreign/
+display/
+characters/
+config/
+
+Do not destroy original source assets immediately.
+Keep original assets available until replacements are validated.
+
+DATA_SEPARATION:
+visual asset definitions independent from gameplay stats
+character art replacement must not require editing world.gd
+environment tile replacement must not require modifying combat/AI
+future character additions must use same character resource/data architecture
+
+PHASE01_IMPLEMENTATION:
+
+1 inspect repository/current project.godot/current tile and sprite pipeline
+2 preserve 576x324 base logical resolution
+3 normalize desktop standard output to exact 2x 1152x648
+4 establish 16x16 world grid asset standard
+5 establish 32x32 Wylder sprite frame standard
+6 add display profile abstraction for STANDARD/PET/FUTURE_MOBILE
+7 configure nearest-neighbor pixel rendering
+8 verify pixel snapping
+9 create Nightreign asset folder structure
+10 replace current player visual with temporary 32x32 Wylder placeholder while keeping one-tile logical occupancy
+11 verify all 8 movement directions
+12 verify diagonal movement remains exactly one grid action
+13 verify 32x32 character can overlap surrounding visual tiles without changing collision
+14 verify random dungeon generation still works
+15 verify FOV/fog still works
+16 verify enemy turns still work
+17 verify inventory/equipment still works
+18 run at 576x324 and 1152x648
+19 ensure screenshots at both resolutions show identical gameplay framing/aspect
+20 document modified files
+
+DO_NOT_YET_IMPLEMENT:
+additional Nightfarers
+Nightlord systems
+full Nightreign combat redesign
+mobile touch UI
+actual iOS export
+desktop transparency
+always-on-top behavior
+online multiplayer
+large content conversion
+final HUD
+final art
+large item database
+story
+meta progression
+
+ACCEPTANCE_CRITERIA:
+
+A project launches successfully in Godot
+A procedural dungeon remains playable
+A player occupies exactly one 16x16 logical tile
+A player is visually represented by a 32x32 frame
+A player supports 8-direction grid movement
+A move advances one game turn regardless of animation
+A viewport remains 576x324 logical
+A standard desktop mode displays at 1152x648
+A pet-size mode displays at 576x324
+A gameplay framing remains 16:9
+A pixel art remains crisp with no texture smoothing
+A changing window profile does not alter gameplay rules
+A existing core roguelike systems remain operational
+
+PRIORITY:
+architecture_stability > pixel_consistency > compatibility_with_existing_code > visual_polish > new_features
+
+Before making destructive architecture changes, inspect the existing implementation and adapt to it. Do not replace functioning Statico systems merely to conform to this specification if the same behavior can be obtained with a smaller modification.

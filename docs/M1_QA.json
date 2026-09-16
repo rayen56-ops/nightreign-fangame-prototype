@@ -1,0 +1,30 @@
+{
+	"checks": 64,
+	"expeditions": [
+		{
+			"actions": 67,
+			"character": "wylder",
+			"floors": [
+				1,
+				2,
+				3
+			],
+			"hp": 68,
+			"runes": 222,
+			"won": true
+		},
+		{
+			"actions": 68,
+			"character": "revenant",
+			"floors": [
+				1,
+				2,
+				3
+			],
+			"hp": 44,
+			"runes": 231,
+			"won": true
+		}
+	],
+	"failures": []
+}

@@ -1,0 +1,8 @@
+.DS_Store
+.godot/
+/android/
+.~*
+.venv/
+deploy/
+.cursor/
+runtime/Godot.exe

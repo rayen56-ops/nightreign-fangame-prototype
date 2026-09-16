@@ -1,0 +1,13 @@
+project.godot
+assets\generated\item_sprites.tres
+assets\generated\world_tiles.tres
+assets\shaders\actor.gdshader
+scenes\actor\actor.gd
+scenes\game\game.gd
+scenes\menu\main_menu.tscn
+scenes\ui\confirmation_modal.gd
+scenes\ui\direction_modal.gd
+scenes\ui\game_over_modal.gd
+scenes\ui\inventory_modal.gd
+scenes\ui\modal.gd
+src\camera_controller.gd

@@ -1,0 +1,9 @@
+{
+	"capture": "Godot viewport framebuffer",
+	"characters": [
+		"wylder",
+		"revenant"
+	],
+	"checks": 24,
+	"failures": []
+}
