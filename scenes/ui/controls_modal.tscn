@@ -53,7 +53,7 @@ layout_mode = 2
 [node name="ControlsText" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 10
-text = "MOVE\nWASD / ARROWS    Move / bump attack\nQ E Z C          Diagonal movement\nX                Wait one turn\n\nACTIONS\nR Skill   V Ultimate   H Flask   G Grace\nP Pick up   I Inventory   J Equipment\nO Open   L Close   SPACE or > Descend\n\nMOUSE\nLeft: move / attack   Right: ranged attack\nWheel: zoom\n\n?  Show / close this guide"
+text = "MOVE\nWASD / ARROWS    Move / bump attack\nQ E Z C          Diagonal movement\nX                Wait one turn\n\nCOMBAT\nF                Weapon attack, then choose a direction\n                 Greatsword sweeps / long weapons reach farther\nR Skill   V Ultimate   H Flask   G Grace\n\nACTIONS\nP Pick up   I Inventory   J Equipment\nO Open   L Close   SPACE or > Descend\n\nMOUSE\nLeft: move / bump attack   Right: legacy ranged attack\nWheel: zoom\n\n?  Show / close this guide"
 horizontal_alignment = 0
 
 [node name="HSeparator2" type="HSeparator" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer"]
