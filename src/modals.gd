@@ -5,6 +5,7 @@ signal inventory_closed
 
 var modal_stack: Array[Modal] = []
 var _startup_controls_checked: bool = false
+var _night_attack_prompt_active: bool = false
 
 
 func _process(_delta: float) -> void:
@@ -26,6 +27,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		toggle_controls()
 		return
+	# T1 deliberate weapon attack. The game scene intentionally leaves the legacy
+	# `fire` action unhandled, so the modal service owns the direction prompt here.
+	if event.is_action_pressed("fire") and not has_visible_modals() and not World.game_over:
+		get_viewport().set_input_as_handled()
+		_begin_night_weapon_attack()
+		return
 	# Hidden browser-regression hook. It is inert in normal builds/URLs.
 	if _is_web_qa() and event is InputEventKey and event.pressed and event.physical_keycode == KEY_F8:
 		get_viewport().set_input_as_handled()
@@ -33,6 +40,24 @@ func _unhandled_input(event: InputEvent) -> void:
 			World.player.hp = 0
 		World.game_over = true
 		show_game_over()
+
+
+func _begin_night_weapon_attack() -> void:
+	if _night_attack_prompt_active:
+		return
+	var game := get_node_or_null("/root/Game")
+	if game == null or not bool(game.get("waiting_for_player_input")):
+		return
+	_night_attack_prompt_active = true
+	var picked := await prompt_for_direction()
+	_night_attack_prompt_active = false
+	if picked == Vector3i.ZERO or World.game_over:
+		return
+	game = get_node_or_null("/root/Game")
+	if game == null or not bool(game.get("waiting_for_player_input")):
+		return
+	game.set("waiting_for_player_input", false)
+	game.call("_handle_player_action", NightWeaponAttackAction.new(Vector2i(picked.x, picked.y)))
 
 
 func _is_web_qa() -> bool:
@@ -106,7 +131,7 @@ func show_inventory(tab: InventoryModal.Tab = InventoryModal.Tab.INVENTORY) -> I
 	# Let Game hook into signals
 	inventory_opened.emit(modal)
 
-	# Send inventory_closed signal when modal is closed
+	# Send inventory_closed signal when it is closed
 	modal.modal_closed.connect(func(_child: Modal) -> void: inventory_closed.emit())
 
 	# Caller will want to hook up signals
