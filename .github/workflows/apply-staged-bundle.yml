@@ -1,0 +1,93 @@
+name: Apply staged project bundle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.patch/t0_bundle.b64'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Skip when no staged bundle exists
+        id: bundle
+        shell: bash
+        run: |
+          if [[ -f .patch/t0_bundle.b64 ]]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "No staged bundle. Nothing to apply."
+          fi
+
+      - name: Apply staged bundle
+        if: steps.bundle.outputs.exists == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d .patch/t0_bundle.b64 > /tmp/t0_bundle.tar.gz
+          tar -xzf /tmp/t0_bundle.tar.gz
+          python3 tools/validate_t0.py
+
+      - name: Install Godot 4.6.3
+        if: steps.bundle.outputs.exists == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 -o /tmp/godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.3-stable_linux.x86_64
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --version
+
+      - name: Import project
+        if: steps.bundle.outputs.exists == 'true'
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout 90 /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --import --path "$GITHUB_WORKSPACE" 2>&1 | tee /tmp/godot_import.log
+          ! grep -E "SCRIPT ERROR|Parse Error" /tmp/godot_import.log
+
+      - name: Run T0 runtime QA
+        if: steps.bundle.outputs.exists == 'true'
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout 90 /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path "$GITHUB_WORKSPACE" res://tests/t0_core.tscn 2>&1 | tee /tmp/t0_runtime.log
+          ! grep -E "SCRIPT ERROR|Parse Error" /tmp/t0_runtime.log
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('docs/T0_QA.json')
+          assert p.exists(), 'docs/T0_QA.json was not generated'
+          data = json.loads(p.read_text(encoding='utf-8'))
+          failures = data.get('failures', [])
+          assert not failures, f'T0 runtime QA failures: {failures}'
+          print(f"T0 runtime QA passed: {data.get('checks', 'unknown')} checks")
+          PY
+
+      - name: Commit verified T0 changes
+        if: steps.bundle.outputs.exists == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .patch/t0_bundle.b64
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "T0: establish verified 20-floor core architecture"
+          git push origin HEAD:main
