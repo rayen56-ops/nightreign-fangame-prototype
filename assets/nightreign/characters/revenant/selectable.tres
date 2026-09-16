@@ -1,16 +1,18 @@
 [gd_resource type="Resource" script_class="NightreignCharacterVisual" load_steps=3 format=3]
 [ext_resource type="Script" path="res://src/nightreign/characters/character_visual.gd" id="1"]
-[ext_resource type="Texture2D" path="res://assets/nightreign/characters/revenant/idle-selected.png" id="2"]
+[ext_resource type="Texture2D" path="res://assets/nightreign/characters/revenant/combat_8dir.png" id="2"]
 [resource]
 script = ExtResource("1")
 display_name = "Revenant"
 atlas = ExtResource("2")
-shared_direction = true
+frame_size = Vector2i(48, 64)
+pivot = Vector2i(24, 60)
+shared_direction = false
 animations = {
-"idle": {"row": 0, "frames": 1, "fps": 4.0, "loop": true},
-"move": {"row": 0, "frames": 1, "fps": 10.0, "loop": false},
-"melee_attack": {"row": 0, "frames": 1, "fps": 4.0, "loop": false},
-"grappling_claw": {"row": 0, "frames": 1, "fps": 4.0, "loop": false},
-"hit": {"row": 0, "frames": 1, "fps": 5.0, "loop": false},
-"death": {"row": 0, "frames": 1, "fps": 2.0, "loop": false}
+"idle": {"column": 0, "row": 0, "frames": 1, "fps": 4.0, "loop": true},
+"move": {"column": 0, "row": 0, "frames": 1, "fps": 10.0, "loop": false},
+"melee_attack": {"column": 1, "row": 0, "frames": 4, "fps": 8.0, "loop": false},
+"grappling_claw": {"column": 1, "row": 0, "frames": 4, "fps": 8.0, "loop": false},
+"hit": {"column": 4, "row": 0, "frames": 1, "fps": 8.0, "loop": false},
+"death": {"column": 4, "row": 0, "frames": 1, "fps": 2.0, "loop": false}
 }
