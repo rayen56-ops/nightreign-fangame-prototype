@@ -4,6 +4,42 @@ signal inventory_opened(inventory: InventoryModal)
 signal inventory_closed
 
 var modal_stack: Array[Modal] = []
+var _startup_controls_checked: bool = false
+
+
+func _process(_delta: float) -> void:
+	if _startup_controls_checked:
+		return
+	if not get_node_or_null("/root/Game/UI"):
+		return
+	_startup_controls_checked = true
+	# Browser QA needs an unobstructed canvas; normal players see the guide once.
+	if _is_web_qa():
+		return
+	show_controls()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.echo:
+		return
+	if event.is_action_pressed("help"):
+		get_viewport().set_input_as_handled()
+		toggle_controls()
+		return
+	# Hidden browser-regression hook. It is inert in normal builds/URLs.
+	if _is_web_qa() and event is InputEventKey and event.pressed and event.physical_keycode == KEY_F8:
+		get_viewport().set_input_as_handled()
+		if World.player:
+			World.player.hp = 0
+		World.game_over = true
+		show_game_over()
+
+
+func _is_web_qa() -> bool:
+	if not OS.has_feature("web"):
+		return false
+	var search := String(JavaScriptBridge.eval("window.location.search || ''"))
+	return search.find("qa=1") >= 0
 
 
 # Use this to block input when modals are visible or to check for input
@@ -91,7 +127,26 @@ func hide_inventory() -> void:
 			modal._close_modal()
 
 
+func show_controls() -> void:
+	for modal in modal_stack:
+		if modal is ControlsModal:
+			return
+	var modal: ControlsModal = preload("res://scenes/ui/controls_modal.tscn").instantiate()
+	_add_modal(modal)
+
+
+func toggle_controls() -> void:
+	for modal in modal_stack.duplicate():
+		if modal is ControlsModal:
+			modal._close_modal()
+			return
+	show_controls()
+
+
 func show_game_over() -> void:
+	for modal in modal_stack:
+		if modal is GameOverModal:
+			return
 	var modal: GameOverModal = preload("res://scenes/ui/game_over_modal.tscn").instantiate()
 	_add_modal(modal)
 
@@ -101,5 +156,8 @@ func has_visible_modals() -> bool:
 
 
 func close_all_modals() -> void:
-	for modal in modal_stack:
-		modal._close_modal()
+	# Closing a modal mutates modal_stack through its signal. Iterate over a copy
+	# so no modal is skipped during game-over scene transitions.
+	for modal in modal_stack.duplicate():
+		if is_instance_valid(modal):
+			modal._close_modal()

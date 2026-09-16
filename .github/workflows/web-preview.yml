@@ -11,13 +11,13 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "nightreign-pages"
+  group: nightreign-pages
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,44 +29,32 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -L --fail --retry 3 \
-            -o /tmp/godot.zip \
-            https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          curl -L --fail --retry 3 -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
           unzip -q /tmp/godot.zip -d /tmp/godot
           chmod +x /tmp/godot/Godot_v4.6.3-stable_linux.x86_64
           /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --version
 
-      - name: Import project
+      - name: Clean import and reject script errors
         shell: bash
         run: |
           set -o pipefail
-          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 \
-            --headless --editor --import --path . --quit 2>&1 | tee /tmp/web-import.out
-          ! grep -E "SCRIPT ERROR|Parse Error" /tmp/web-import.out
+          rm -rf .godot
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --editor --import --path . --quit 2>&1 | tee /tmp/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/import.log
 
       - name: Runtime T0 quality gate
         shell: bash
         run: |
           set -o pipefail
-          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 \
-            --headless --path . res://tests/t0_core.tscn \
-            --quit-after 1800 2>&1 | tee /tmp/web-runtime.out
-          ! grep -E "SCRIPT ERROR|Parse Error" /tmp/web-runtime.out
-          python3 - <<'PY'
-          import json
-          report = json.load(open('docs/T0_QA.json', encoding='utf-8'))
-          assert report.get('failures') == [], report.get('failures')
-          assert report.get('checks') == 246, report.get('checks')
-          print('Runtime gate passed: 246/246')
-          PY
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . res://tests/t0_core.tscn --quit-after 1800 2>&1 | tee /tmp/runtime.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/runtime.log
+          python3 -c "import json; r=json.load(open('docs/T0_QA.json', encoding='utf-8')); assert r.get('failures') == [], r.get('failures'); assert r.get('checks') == 246, r.get('checks'); print('Native T0 runtime: 246/246')"
 
-      - name: Install Godot Web export templates
+      - name: Install Web export templates
         shell: bash
         run: |
           set -euo pipefail
-          curl -L --fail --retry 3 \
-            -o /tmp/templates.tpz \
-            https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_export_templates.tpz
+          curl -L --fail --retry 3 -o /tmp/templates.tpz https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_export_templates.tpz
           rm -rf /tmp/godot-templates
           mkdir -p /tmp/godot-templates
           unzip -q /tmp/templates.tpz -d /tmp/godot-templates
@@ -81,89 +69,38 @@ jobs:
           set -o pipefail
           rm -rf site
           mkdir -p site/game
-          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 \
-            --headless --path . --export-release "Web" site/game/index.html 2>&1 | tee /tmp/web-export.out
-          ! grep -E "SCRIPT ERROR|Parse Error" /tmp/web-export.out
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --export-release "Web" site/game/index.html 2>&1 | tee /tmp/export.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/export.log
           test -s site/game/index.html
           test -n "$(find site/game -maxdepth 1 -name '*.wasm' -print -quit)"
           test -n "$(find site/game -maxdepth 1 -name '*.pck' -print -quit)"
 
-      - name: Install browser QA runtime
+      - name: Install browser QA runtimes
         shell: bash
         run: |
           npm init -y >/dev/null 2>&1
           npm install --save-dev playwright@1.55.0 >/dev/null
           npx playwright install --with-deps chromium firefox
 
-      - name: Browser playability gate
+      - name: Browser gameplay and UI regression gates
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p artifacts/web-qa
           python3 -m http.server 4173 -d site >/tmp/nightreign-http.log 2>&1 &
           server_pid=$!
           trap 'kill $server_pid || true' EXIT
           sleep 2
-          cat > /tmp/nightreign-web-smoke.mjs <<'JS'
-          import { chromium, firefox } from 'playwright';
+          node tools/web_playability_smoke.mjs
+          node tools/ui_regression_smoke.mjs
 
-          const browsers = [['chromium', chromium], ['firefox', firefox]];
-          for (const [name, browserType] of browsers) {
-            const browser = await browserType.launch({ headless: true });
-            const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-            const fatals = [];
-            const requestFailures = [];
-            page.on('console', msg => {
-              const text = msg.text();
-              if (msg.type() === 'error' && /SCRIPT ERROR|Parse Error|RuntimeError|WebAssembly.*failed|abort\(/i.test(text)) fatals.push(text);
-            });
-            page.on('pageerror', error => fatals.push(`PAGEERROR: ${error.message}`));
-            page.on('requestfailed', request => requestFailures.push(`${request.url()} :: ${request.failure()?.errorText ?? 'unknown'}`));
-
-            await page.goto('http://127.0.0.1:4173/game/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-            const canvas = page.locator('canvas');
-            await canvas.waitFor({ state: 'visible', timeout: 30000 });
-            await canvas.click({ position: { x: 100, y: 100 } });
-            await page.waitForFunction(() => window.__nightreignQA?.ready === true, null, { timeout: 30000 });
-
-            const box = await canvas.boundingBox();
-            if (!box || box.width < 500 || box.height < 280) throw new Error(`${name}: invalid canvas bounds ${JSON.stringify(box)}`);
-
-            const initial = await page.evaluate(() => ({ ...window.__nightreignQA }));
-            console.log(name, 'READY', initial, 'canvas', box);
-            if (!initial.player_actor_visible) throw new Error(`${name}: player actor not instantiated/visible`);
-            if (!Array.isArray(initial.walkable) || initial.walkable.length === 0) throw new Error(`${name}: player spawn has no walkable adjacent tile`);
-
-            await page.keyboard.press('x');
-            await page.waitForFunction(turn => window.__nightreignQA?.turn > turn, initial.turn, { timeout: 5000 });
-            const afterWait = await page.evaluate(() => ({ ...window.__nightreignQA }));
-            if (afterWait.turn !== initial.turn + 1) throw new Error(`${name}: wait did not advance exactly one turn`);
-
-            let moved = false;
-            for (const key of afterWait.walkable) {
-              const before = await page.evaluate(() => ({ ...window.__nightreignQA }));
-              await page.keyboard.press(key);
-              try {
-                await page.waitForFunction(state => {
-                  const q = window.__nightreignQA;
-                  return q && (q.x !== state.x || q.y !== state.y);
-                }, before, { timeout: 2500 });
-                const after = await page.evaluate(() => ({ ...window.__nightreignQA }));
-                if (after.turn !== before.turn + 1) throw new Error(`${name}: movement did not advance exactly one turn`);
-                moved = true;
-                console.log(name, 'MOVE_OK', key, before, after);
-                break;
-              } catch (_) {}
-            }
-            if (!moved) throw new Error(`${name}: no legal movement changed the player grid position`);
-
-            await page.screenshot({ path: `artifacts/web-qa/${name}-playable.png`, fullPage: true });
-            if (fatals.length) throw new Error(`${name}: fatal console errors ${JSON.stringify(fatals)}`);
-            if (requestFailures.some(line => /\.wasm|\.pck/i.test(line))) throw new Error(`${name}: WASM/PCK request failures ${JSON.stringify(requestFailures)}`);
-            await browser.close();
-          }
-          console.log('WEB_PLAYABILITY_PASS');
-          JS
-          node /tmp/nightreign-web-smoke.mjs
+      - name: Build preview landing page
+        shell: bash
+        run: |
+          cat > site/index.html <<'HTML'
+          <!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NIGHTREIGN GRID</title><style>html,body{height:100%;margin:0;background:#090c10;color:#d8dde3;font-family:system-ui}body{display:grid;place-items:center}.card{padding:32px;border:1px solid #343b45;background:#10151c;text-align:center;max-width:620px}a{display:inline-block;margin-top:16px;padding:12px 18px;border:1px solid #b59a67;color:#eee3cb;text-decoration:none}.ok{color:#9bc6a5}</style></head><body><div class="card"><h1>NIGHTREIGN GRID</h1><p class="ok">Godot runtime, movement, controls guide and game-over recovery verified.</p><p>遊戲內按 <b>?</b> 可再次查看完整操作表。</p><a href="./game/">進入遊戲</a></div></body></html>
+          HTML
+          touch site/.nojekyll
 
       - name: Upload browser QA evidence
         if: always()
@@ -173,32 +110,6 @@ jobs:
           path: artifacts/web-qa
           if-no-files-found: ignore
           retention-days: 14
-
-      - name: Build preview dashboard
-        env:
-          BUILD_SHA: ${{ github.sha }}
-          BUILD_RUN: ${{ github.run_number }}
-        run: |
-          python3 - <<'PY'
-          import datetime, html, json, os
-          from pathlib import Path
-
-          static = json.load(open('docs/T0_STATIC_QA.json', encoding='utf-8'))
-          runtime = json.load(open('docs/T0_QA.json', encoding='utf-8'))
-          sha = os.environ['BUILD_SHA']
-          run = os.environ['BUILD_RUN']
-          updated = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
-          static_checks = static.get('checks', 125)
-          runtime_checks = runtime.get('checks', 246)
-          engine = runtime.get('engine', '4.6.3-stable')
-
-          page = f'''<!doctype html>
-          <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NIGHTREIGN Dungeon Preview</title>
-          <style>:root{{color-scheme:dark;--bg:#0b0e12;--panel:#111721;--line:#26303b;--gold:#c0a46f;--text:#d8dde3;--muted:#89939f;--ok:#91b79a}}*{{box-sizing:border-box}}body{{margin:0;min-height:100vh;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:radial-gradient(circle at 50% -20%,#1d2733 0,#0b0e12 48%);color:var(--text);display:grid;place-items:center;padding:24px}}main{{width:min(960px,100%);border:1px solid var(--line);background:rgba(10,14,19,.9);box-shadow:0 30px 90px #0009}}header{{padding:28px 30px 22px;border-bottom:1px solid var(--line)}}.eyebrow{{color:var(--gold);letter-spacing:.2em;font-size:12px}}h1{{margin:8px 0 4px;font-family:Georgia,serif;font-weight:500;letter-spacing:.04em;font-size:clamp(28px,5vw,52px)}}.sub{{color:var(--muted)}}.grid{{display:grid;grid-template-columns:1.3fr .7fr}}section{{padding:28px 30px}}section+section{{border-left:1px solid var(--line)}}.play{{display:inline-flex;align-items:center;gap:12px;margin-top:24px;padding:14px 20px;border:1px solid var(--gold);color:#ede3cf;text-decoration:none;letter-spacing:.12em;background:#c0a46f12}}.play:hover{{background:#c0a46f24}}.status{{display:flex;align-items:center;gap:8px;color:var(--ok);margin-bottom:18px}}.dot{{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 14px var(--ok)}}dl{{display:grid;grid-template-columns:auto 1fr;gap:10px 18px;margin:0;font-size:13px}}dt{{color:var(--muted)}}dd{{margin:0;text-align:right;overflow-wrap:anywhere}}footer{{border-top:1px solid var(--line);color:var(--muted);padding:14px 30px;font-size:11px}}@media(max-width:700px){{.grid{{grid-template-columns:1fr}}section+section{{border-left:0;border-top:1px solid var(--line)}}}}</style></head>
-          <body><main><header><div class="eyebrow">DEVELOPMENT PREVIEW · T0</div><h1>NIGHTREIGN Dungeon</h1><div class="sub">不可思議迷宮式同人原型 · browser-playability verified</div></header><div class="grid"><section><h2>PLAY</h2><p>這個版本已通過 Godot Runtime、Chromium 與 Firefox 實際鍵盤操作驗證。</p><a class="play" href="./game/">進入目前版本 →</a></section><section><div class="status"><span class="dot"></span>T0 WEB VERIFIED</div><dl><dt>Static QA</dt><dd>{static_checks}/125</dd><dt>Runtime QA</dt><dd>{runtime_checks}/246</dd><dt>Browser QA</dt><dd>Chromium + Firefox PASS</dd><dt>Godot</dt><dd>{html.escape(engine)}</dd><dt>Commit</dt><dd>{html.escape(sha[:10])}</dd><dt>Build</dt><dd>#{html.escape(run)}</dd><dt>Updated</dt><dd>{html.escape(updated)}</dd></dl></section></div><footer>Only browser-playable builds are deployed.</footer></main></body></html>'''
-          Path('site/index.html').write_text(page, encoding='utf-8')
-          Path('site/.nojekyll').touch()
-          PY
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
