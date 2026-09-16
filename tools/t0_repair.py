@@ -154,24 +154,32 @@ func _has_immediate_player_egress(map: Map, spawn: Vector2i) -> bool:
     # Normal users still see the menu. Browser QA can enter gameplay using ?qa=1.
     menu_path = Path("scenes/menu/main_menu.gd")
     menu = menu_path.read_text(encoding="utf-8")
+    old = (
+        "# Uncomment this to test the game immediately after running\n"
+        "# func _ready() -> void:\n"
+        "# \tcall_deferred(\"_on_play_button_pressed\")\n"
+    )
+    new = (
+        "# Browser QA can enter gameplay without guessing canvas coordinates.\n"
+        "# A normal Web/desktop launch still shows this menu.\n"
+        "func _ready() -> void:\n"
+        "\tif not OS.has_feature(\"web\"):\n"
+        "\t\treturn\n"
+        "\tvar search := String(JavaScriptBridge.eval(\"window.location.search || ''\"))\n"
+        "\tvar qa_autostart := search.find(\"qa=1\") >= 0\n"
+        "\tprint(\"NIGHTREIGN_QA_MENU search=%s autostart=%s\" % [search, qa_autostart])\n"
+        "\tJavaScriptBridge.eval(\"window.__nightreignMenuQA = { ready: true, qa: %s, search: %s };\" % [str(qa_autostart).to_lower(), JSON.stringify(search)])\n"
+        "\tif qa_autostart:\n"
+        "\t\tset_meta(\"nightreign_qa_autostart\", true)\n"
+        "\t\tcall_deferred(\"_on_play_button_pressed\")\n"
+    )
     if "nightreign_qa_autostart" not in menu:
-        old = (
-            "# Uncomment this to test the game immediately after running\n"
-            "# func _ready() -> void:\n"
-            "# \tcall_deferred(\"_on_play_button_pressed\")\n"
-        )
-        new = (
-            "# Browser QA can enter gameplay without guessing canvas coordinates.\n"
-            "# A normal Web/desktop launch still shows this menu.\n"
-            "func _ready() -> void:\n"
-            "\tif OS.has_feature(\"web\"):\n"
-            "\t\tvar search := String(JavaScriptBridge.eval(\"window.location.search\"))\n"
-            "\t\tif \"qa=1\" in search:\n"
-            "\t\t\tset_meta(\"nightreign_qa_autostart\", true)\n"
-            "\t\t\tcall_deferred(\"_on_play_button_pressed\")\n"
-        )
         assert old in menu
         menu = menu.replace(old, new, 1)
+    else:
+        start = menu.index("# Browser QA can enter gameplay without guessing canvas coordinates.")
+        end = menu.index("\n\nfunc _on_play_button_pressed", start)
+        menu = menu[:start] + new.rstrip("\n") + menu[end:]
     menu_path.write_text(menu, encoding="utf-8")
 
     # Permanent Web gate must use the QA-only entry path.
