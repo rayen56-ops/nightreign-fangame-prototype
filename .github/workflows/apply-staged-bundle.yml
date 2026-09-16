@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - '.patch/t0_bundle.b64'
+      - '.patch/t0_ready.txt'
   workflow_dispatch:
 
 permissions:
@@ -19,15 +19,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Skip when no staged bundle exists
+      - name: Detect staged bundle
         id: bundle
         shell: bash
         run: |
-          if [[ -f .patch/t0_bundle.b64 ]]; then
+          shopt -s nullglob
+          parts=(.patch/t0_bundle.part*)
+          if [[ -f .patch/t0_ready.txt && ${#parts[@]} -gt 0 ]]; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "${parts[@]}"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "No staged bundle. Nothing to apply."
+            echo "No complete staged bundle. Nothing to apply."
           fi
 
       - name: Apply staged bundle
@@ -35,7 +38,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base64 -d .patch/t0_bundle.b64 > /tmp/t0_bundle.tar.gz
+          cat .patch/t0_bundle.part* | base64 -d > /tmp/t0_bundle.tar.gz
+          echo "2b1343cd0e247cb4d9f60348cd73980f21548b0914374bf57291e3a9757e6ea6  /tmp/t0_bundle.tar.gz" | sha256sum -c -
           tar -xzf /tmp/t0_bundle.tar.gz
           python3 tools/validate_t0.py
 
@@ -81,7 +85,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f .patch/t0_bundle.b64
+          rm -f .patch/t0_bundle.part* .patch/t0_ready.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
