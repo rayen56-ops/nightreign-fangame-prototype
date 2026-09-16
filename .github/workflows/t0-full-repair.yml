@@ -120,13 +120,13 @@ jobs:
           rm -rf node_modules .godot
           git config user.name nightreign-prototype-bot
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add src/actions/attack_move_action.gd src/actions/move_action.gd src/actions/melee_action.gd src/world.gd scenes/game/game.gd scenes/menu/main_menu.gd .github/workflows/web-preview.yml docs/T0_QA.json docs/T0_STATIC_QA.json
+          git add src/actions/attack_move_action.gd src/actions/move_action.gd src/actions/melee_action.gd src/world.gd scenes/game/game.gd scenes/menu/main_menu.gd docs/T0_QA.json docs/T0_STATIC_QA.json
+          git restore .github/workflows/web-preview.yml 2>/dev/null || true
           git diff --cached --check
           if git diff --cached --quiet; then
             echo 'Repair already present.'
           else
             git commit -m 'T0: restore action API and prove real browser movement'
-            git pull --rebase origin main
             git push origin HEAD:main
           fi
 
