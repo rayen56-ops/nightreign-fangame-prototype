@@ -62,6 +62,10 @@
       "name": "Misericorde", "base": 4, "archetype": "dagger",
       "scaling": {"DEX": "S"}, "sprite": "weapon-0", "affinity": "physical"
     },
+    "spear": {
+      "name": "Spear", "base": 5, "archetype": "spear",
+      "scaling": {"STR": "C", "DEX": "B"}, "sprite": "weapon-0", "affinity": "physical"
+    },
     "glintstone_staff": {
       "name": "Glintstone Staff", "base": 5, "archetype": "staff",
       "scaling": {"INT": "A"}, "sprite": "weapon-0", "affinity": "magic"
