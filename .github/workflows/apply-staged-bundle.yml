@@ -25,12 +25,14 @@ jobs:
         run: |
           shopt -s nullglob
           parts=(.patch/t0_bundle.part*)
-          if [[ -f .patch/t0_ready.txt && ${#parts[@]} -gt 0 ]]; then
+          asset_parts=(.patch/t0_assets.part*)
+          if [[ -f .patch/t0_ready.txt && ${#parts[@]} -gt 0 && ${#asset_parts[@]} -gt 0 ]]; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
             printf '%s\n' "${parts[@]}"
+            printf '%s\n' "${asset_parts[@]}"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "No complete staged bundle. Nothing to apply."
+            echo "T0 staged bundle or asset bundle is incomplete. Nothing to apply."
           fi
 
       - name: Apply staged bundle
@@ -41,6 +43,9 @@ jobs:
           cat .patch/t0_bundle.part* | base64 -d > /tmp/t0_bundle.tar.gz
           echo "2b1343cd0e247cb4d9f60348cd73980f21548b0914374bf57291e3a9757e6ea6  /tmp/t0_bundle.tar.gz" | sha256sum -c -
           tar -xzf /tmp/t0_bundle.tar.gz
+          cat .patch/t0_assets.part* | base64 -d > /tmp/t0_assets.tar.gz
+          echo "f4d5ba95c17c7aaceef6ce00f40532469486afc3fcb6831ae94cde13cc0a8697  /tmp/t0_assets.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/t0_assets.tar.gz
           python3 tools/validate_t0.py
 
       - name: Install Godot 4.6.3
@@ -85,7 +90,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f .patch/t0_bundle.part* .patch/t0_ready.txt
+          rm -f .patch/t0_bundle.part* .patch/t0_assets.part* .patch/t0_ready.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
