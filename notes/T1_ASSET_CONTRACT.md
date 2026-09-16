@@ -1,0 +1,1 @@
+Source art supplied by user. Do not upscale with smoothing. Preserve nearest-neighbor pixel edges.
