@@ -89,11 +89,13 @@ func initialize(seed_override: int = -1) -> void:
 	maps[map.id] = map
 	current_map = map
 
-	# Add the player to the main entrance
-	assert(
-		map.add_monster_at_stairs(player, Obstacle.Type.STAIRS_UP),
-		"Failed to add player to main entrance"
-	)
+	# Add the player to the main entrance. Never put side effects inside assert():
+	# release exports may compile assertions out entirely.
+	var player_placed := map.add_monster_at_stairs(player, Obstacle.Type.STAIRS_UP)
+	assert(player_placed, "Failed to add player to main entrance")
+	if not player_placed:
+		push_error("Failed to add player to main entrance")
+		return
 
 	NightRun.reset_run()
 
@@ -112,6 +114,19 @@ func _find_stairs(map: Map, type: Obstacle.Type) -> Vector2i:
 			if map.get_stairs_type(p) == type:
 				return p
 	return Utils.INVALID_POS
+
+
+func _has_immediate_player_egress(map: Map, spawn: Vector2i) -> bool:
+	if spawn == Utils.INVALID_POS:
+		return false
+	for direction: Vector2i in Utils.ALL_DIRECTIONS:
+		var target := spawn + direction
+		if not map.is_in_bounds(target):
+			continue
+		var cell := map.get_cell(target)
+		if cell.is_walkable() and map.get_monster(target) == null:
+			return true
+	return false
 
 
 func _has_walkable_route(map: Map, start: Vector2i, goal: Vector2i) -> bool:
@@ -162,6 +177,8 @@ func _generated_map_meets_t0_contract(map: Map, plan: WorldPlan.LevelPlan) -> bo
 	if plan.down_destination != "" and down == Utils.INVALID_POS:
 		return false
 	if plan.down_destination == "" and down != Utils.INVALID_POS:
+		return false
+	if up != Utils.INVALID_POS and not _has_immediate_player_egress(map, up):
 		return false
 	if up != Utils.INVALID_POS and down != Utils.INVALID_POS and not _has_walkable_route(map, up, down):
 		return false

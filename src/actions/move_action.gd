@@ -14,7 +14,8 @@ func _execute(map: Map, result: ActionResult) -> bool:
 		return false
 
 	var current_pos: Vector2i = map.find_monster_position(actor)
-	if not current_pos:
+	if current_pos == Utils.INVALID_POS:
+		push_error("MoveAction actor is not present on the current map: %s" % actor)
 		return false
 
 	if actor.has_status_effect(StatusEffect.Type.PARALYZED):
@@ -30,6 +31,8 @@ func _execute(map: Map, result: ActionResult) -> bool:
 		direction = Utils.ALL_DIRECTIONS.pick_random()
 
 	var new_pos: Vector2i = current_pos + direction
+	if not map.is_in_bounds(new_pos):
+		return false
 
 	# Check if target position is walkable
 	if not map.get_cell(new_pos).is_walkable():

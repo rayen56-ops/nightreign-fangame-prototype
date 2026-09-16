@@ -17,6 +17,9 @@ var _throw_selection: Variant = null  # Track item being thrown
 
 
 func _ready() -> void:
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.__nightreignQA = { ready: false, stage: 'game_ready_entered' };")
+		print("NIGHTREIGN_QA_STAGE game_ready_entered")
 	map_renderer.z_index = -2
 	# Connect to World signals
 	World.map_changed.connect(_on_map_changed)
@@ -89,9 +92,13 @@ func _initialize() -> void:
 
 	# Initialize the world
 	World.initialize()
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.__nightreignQA = { ready: false, stage: 'world_initialized' };")
+		print("NIGHTREIGN_QA_STAGE world_initialized")
 
 	# Update actors
 	_update_actors()
+	_publish_web_qa("ready")
 
 
 func _process(_delta: float) -> void:
@@ -139,7 +146,10 @@ func _on_game_over() -> void:
 	Modals.show_game_over()
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.echo:
+		return
+
 	if Modals.has_visible_modals():
 		if event.is_action_pressed("attack_move_to_location"):
 			get_viewport().set_input_as_handled()
@@ -203,15 +213,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("toggle_debug"):
 		hud.debug_mode = not hud.debug_mode
 
-	var action := await _check_player_input()
+	var action := await _check_player_input(event)
 	if action:
 		waiting_for_player_input = false
 		_handle_player_action(action)
 
 
-func _check_player_input() -> BaseAction:
+func _check_player_input(event: InputEvent) -> BaseAction:
 	for kind: String in ["skill", "ultimate"]:
-		if Input.is_action_just_pressed(kind):
+		if event.is_action_pressed(kind):
 			get_viewport().set_input_as_handled()
 			if CharacterCatalog.selected_id == "revenant":
 				return NightAbilityAction.new(kind)
@@ -219,27 +229,27 @@ func _check_player_input() -> BaseAction:
 			if target_direction == Vector3i.ZERO:
 				return null
 			return NightAbilityAction.new(kind, Vector2i(target_direction.x, target_direction.y))
-	if Input.is_action_just_pressed("flask"):
+	if event.is_action_pressed("flask"):
 		return NightAbilityAction.new("flask")
-	if Input.is_action_just_pressed("grace"):
+	if event.is_action_pressed("grace"):
 		return NightAbilityAction.new("grace")
-	if Input.is_action_just_pressed("descend"):
+	if event.is_action_pressed("descend"):
 		return PlayerMoveDownstairsAction.new()
-	if Input.is_action_just_pressed("inventory"):
+	if event.is_action_pressed("inventory"):
 		get_viewport().set_input_as_handled()
 		Modals.toggle_inventory(InventoryModal.Tab.INVENTORY)
 		return null
 
-	if Input.is_action_just_pressed("toggle_equipment"):
+	if event.is_action_pressed("toggle_equipment"):
 		get_viewport().set_input_as_handled()
 		Modals.toggle_inventory(InventoryModal.Tab.EQUIPMENT)
 		return null
 
-	if Input.is_action_just_pressed("wait"):
+	if event.is_action_pressed("wait"):
 		get_viewport().set_input_as_handled()
 		return PlayerRestAction.new()
 
-	if Input.is_action_just_pressed("interact"):
+	if event.is_action_pressed("interact"):
 		get_viewport().set_input_as_handled()
 		var pos := World.current_map.find_monster_position(World.player)
 		var items := World.current_map.get_items(pos)
@@ -248,54 +258,54 @@ func _check_player_input() -> BaseAction:
 			selections.append(ItemSelection.new(item, item.quantity))
 		return PlayerPickupAction.new(selections)
 
-	if Input.is_action_just_pressed("move_n"):
+	if event.is_action_pressed("move_n"):
 		get_viewport().set_input_as_handled()
 		return PlayerAttackMoveAction.new(Vector2i.UP)
 
-	if Input.is_action_just_pressed("move_s"):
+	if event.is_action_pressed("move_s"):
 		get_viewport().set_input_as_handled()
 		return PlayerAttackMoveAction.new(Vector2i.DOWN)
 
-	if Input.is_action_just_pressed("move_w"):
+	if event.is_action_pressed("move_w"):
 		get_viewport().set_input_as_handled()
 		return PlayerAttackMoveAction.new(Vector2i.LEFT)
 
-	if Input.is_action_just_pressed("move_e"):
+	if event.is_action_pressed("move_e"):
 		get_viewport().set_input_as_handled()
 		return PlayerAttackMoveAction.new(Vector2i.RIGHT)
 
-	if Input.is_action_just_pressed("move_nw"):
+	if event.is_action_pressed("move_nw"):
 		get_viewport().set_input_as_handled()
 		return PlayerAttackMoveAction.new(Vector2i.UP + Vector2i.LEFT)
 
-	if Input.is_action_just_pressed("move_ne"):
+	if event.is_action_pressed("move_ne"):
 		get_viewport().set_input_as_handled()
 		return PlayerAttackMoveAction.new(Vector2i.UP + Vector2i.RIGHT)
 
-	if Input.is_action_just_pressed("move_sw"):
+	if event.is_action_pressed("move_sw"):
 		get_viewport().set_input_as_handled()
 		return PlayerAttackMoveAction.new(Vector2i.DOWN + Vector2i.LEFT)
 
-	if Input.is_action_just_pressed("move_se"):
+	if event.is_action_pressed("move_se"):
 		get_viewport().set_input_as_handled()
 		return PlayerAttackMoveAction.new(Vector2i.DOWN + Vector2i.RIGHT)
 
 	# Add explicit stair movement checks
-	if Input.is_action_just_pressed("move_upstairs"):
+	if event.is_action_pressed("move_upstairs"):
 		get_viewport().set_input_as_handled()
 		return PlayerMoveUpstairsAction.new()
 
-	if Input.is_action_just_pressed("move_downstairs"):
+	if event.is_action_pressed("move_downstairs"):
 		get_viewport().set_input_as_handled()
 		return PlayerMoveDownstairsAction.new()
 
-	if Input.is_action_just_pressed("open"):
+	if event.is_action_pressed("open"):
 		get_viewport().set_input_as_handled()
 		var direction := await Modals.prompt_for_direction()
 		if direction != Vector3i.ZERO:  # Check if not cancelled
 			return PlayerOpenAction.new(Vector2i(direction.x, direction.y))
 
-	if Input.is_action_just_pressed("close"):
+	if event.is_action_pressed("close"):
 		get_viewport().set_input_as_handled()
 		var direction := await Modals.prompt_for_direction()
 		if direction != Vector3i.ZERO:  # Check if not cancelled
@@ -324,6 +334,68 @@ func _handle_player_action(action: BaseAction) -> void:
 
 	# Ready for next input
 	waiting_for_player_input = true
+	_publish_web_qa("action")
+
+
+func _publish_web_qa(last_action: String = "") -> void:
+	if not OS.has_feature("web"):
+		return
+	var payload: Dictionary = {
+		"ready": false,
+		"stage": "telemetry_entered",
+		"last_action": last_action,
+		"turn": World.current_turn,
+		"has_map": World.current_map != null,
+		"has_player": World.player != null,
+		"walkable": [],
+		"player_actor_visible": false,
+	}
+	if not World.current_map:
+		payload["stage"] = "missing_map"
+		JavaScriptBridge.eval("window.__nightreignQA = %s;" % JSON.stringify(payload))
+		print("NIGHTREIGN_QA_STAGE missing_map")
+		return
+	if not World.player:
+		payload["stage"] = "missing_player"
+		JavaScriptBridge.eval("window.__nightreignQA = %s;" % JSON.stringify(payload))
+		print("NIGHTREIGN_QA_STAGE missing_player")
+		return
+	var pos := World.current_map.find_monster_position(World.player)
+	if pos == Utils.INVALID_POS:
+		payload["stage"] = "player_not_on_map"
+		JavaScriptBridge.eval("window.__nightreignQA = %s;" % JSON.stringify(payload))
+		print("NIGHTREIGN_QA_STAGE player_not_on_map")
+		return
+	var walkable: Array[String] = []
+	var directions := {
+		"w": Vector2i.UP,
+		"d": Vector2i.RIGHT,
+		"s": Vector2i.DOWN,
+		"a": Vector2i.LEFT,
+		"q": Vector2i.UP + Vector2i.LEFT,
+		"e": Vector2i.UP + Vector2i.RIGHT,
+		"z": Vector2i.DOWN + Vector2i.LEFT,
+		"c": Vector2i.DOWN + Vector2i.RIGHT,
+	}
+	for key: String in directions:
+		var delta: Vector2i = directions[key]
+		var target := pos + delta
+		if not World.current_map.is_in_bounds(target):
+			continue
+		var cell := World.current_map.get_cell(target)
+		if cell.is_walkable() and World.current_map.get_monster(target) == null:
+			walkable.append(key)
+	var player_actor := get_tree().get_first_node_in_group("player")
+	payload["ready"] = true
+	payload["stage"] = "ready"
+	payload["floor"] = World.current_map.depth
+	payload["x"] = pos.x
+	payload["y"] = pos.y
+	payload["waiting_for_input"] = waiting_for_player_input
+	payload["walkable"] = walkable
+	payload["player_actor_visible"] = player_actor != null and player_actor.visible
+	JavaScriptBridge.eval("window.__nightreignQA = %s;" % JSON.stringify(payload))
+	print("NIGHTREIGN_QA_STAGE ready pos=%s walkable=%s visible=%s" % [pos, walkable, payload["player_actor_visible"]])
 
 
 func _update_actors() -> void:

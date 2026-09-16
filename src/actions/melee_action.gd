@@ -14,7 +14,7 @@ func _execute(map: Map, result: ActionResult) -> bool:
 		return false
 
 	var current_pos := map.find_monster_position(actor)
-	if not current_pos:
+	if current_pos == Utils.INVALID_POS:
 		return false
 
 	if actor.has_status_effect(StatusEffect.Type.PARALYZED):
@@ -30,6 +30,8 @@ func _execute(map: Map, result: ActionResult) -> bool:
 		direction = Utils.ALL_DIRECTIONS.pick_random()
 
 	var target_pos := current_pos + direction
+	if not map.is_in_bounds(target_pos):
+		return false
 
 	# Handle monster collision
 	var target_monster := map.get_monster(target_pos)
