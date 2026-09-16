@@ -41,7 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           cat .patch/t0_bundle.part* | base64 -d > /tmp/t0_bundle.tar.gz
-          echo "2b1343cd0e247cb4d9f60348cd73980f21548b0914374bf57291e3a9757e6ea6  /tmp/t0_bundle.tar.gz" | sha256sum -c -
+          echo "4da7c66729003705fd37f9df1f1dbeb484390220d2c865ffaf6dc73f7ee2ec24  /tmp/t0_bundle.tar.gz" | sha256sum -c -
           tar -xzf /tmp/t0_bundle.tar.gz
           cat .patch/t0_assets.part* | base64 -d > /tmp/t0_assets.tar.gz
           echo "f4d5ba95c17c7aaceef6ce00f40532469486afc3fcb6831ae94cde13cc0a8697  /tmp/t0_assets.tar.gz" | sha256sum -c -
