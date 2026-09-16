@@ -3,4 +3,4 @@ core_sha256=4da7c66729003705fd37f9df1f1dbeb484390220d2c865ffaf6dc73f7ee2ec24
 assets_sha256=f4d5ba95c17c7aaceef6ce00f40532469486afc3fcb6831ae94cde13cc0a8697
 core_parts=7
 asset_parts=12
-retry=9
+retry=10
