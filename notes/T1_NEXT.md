@@ -1,0 +1,1 @@
+Next: wire supplied eight-direction character atlases into runtime resources and QA.
