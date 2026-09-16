@@ -1,0 +1,61 @@
+name: T1 Materialize Character Art
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [t1-character-art-pass-v2]
+    paths: [.github/workflows/t1-materialize-character-art.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: t1-character-art-pass-v2
+          fetch-depth: 0
+      - name: Restore uploaded PNG blobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, json, os, struct, urllib.request
+          repo = 'rayen56-ops/nightreign-fangame-prototype'
+          assets = {
+              'assets/nightreign/characters/wylder/combat_8dir.png': 'fa8cd9c7357c92f892cda81e20c901838b4b2835',
+              'assets/nightreign/characters/revenant/combat_8dir.png': 'e369bd3b0f30fcf5c5d36192bb55cf3548273fc9',
+          }
+          token = os.environ['GH_TOKEN']
+          for path, sha in assets.items():
+              req = urllib.request.Request(
+                  f'https://api.github.com/repos/{repo}/git/blobs/{sha}',
+                  headers={'Authorization': f'Bearer {token}', 'Accept': 'application/vnd.github+json'}
+              )
+              with urllib.request.urlopen(req) as r:
+                  payload = json.load(r)
+              raw = base64.b64decode(payload['content'])
+              if raw[:8] != b'\x89PNG\r\n\x1a\n':
+                  raise SystemExit(f'{path}: blob {sha} is not a PNG')
+              width, height = struct.unpack('>II', raw[16:24])
+              if (width, height) != (240, 512):
+                  raise SystemExit(f'{path}: expected 240x512 (5x8 frames at 48x64), got {width}x{height}')
+              os.makedirs(os.path.dirname(path), exist_ok=True)
+              open(path, 'wb').write(raw)
+              print(path, width, height, len(raw), sha)
+          PY
+      - name: Commit character atlases
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add assets/nightreign/characters/wylder/combat_8dir.png assets/nightreign/characters/revenant/combat_8dir.png
+          if git diff --cached --quiet; then
+            echo 'Character atlases already materialized.'
+            exit 0
+          fi
+          git commit -m 'T1: add 48x64 eight-direction Nightfarer atlases'
+          git push origin HEAD:t1-character-art-pass-v2
