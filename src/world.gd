@@ -34,6 +34,10 @@ var game_over: bool = false
 # Keep track of the max depth reached
 var max_depth: int = 1
 
+# Stable expedition seed. A concrete seed guarantees the same floor topology
+# regardless of previous combat/item RNG consumption.
+var generation_seed: int = 1
+
 # The player's faction affinity
 var faction_affinities: Dictionary = {
 	Factions.Type.HUMAN: 100,  # There could be different human factions with different affinities
@@ -54,10 +58,16 @@ func _ready() -> void:
 	initialize()
 
 
-func initialize() -> void:
+func initialize(seed_override: int = -1) -> void:
 	Log.i("Initializing world...")
 
-	# Initialize all vars
+	# Initialize all vars. Normal runs receive a fresh seed; tests/daily runs can
+	# provide one explicitly and reproduce the complete floor chain.
+	if seed_override >= 0:
+		generation_seed = seed_override
+	else:
+		randomize()
+		generation_seed = randi()
 	current_turn = 1
 	game_over = false
 	max_depth = 1
@@ -85,6 +95,8 @@ func initialize() -> void:
 		"Failed to add player to main entrance"
 	)
 
+	NightRun.reset_run()
+
 	# Compute FOV before the first turn
 	update_vision()
 
@@ -93,51 +105,120 @@ func initialize() -> void:
 	world_initialized.emit()
 
 
+func _find_stairs(map: Map, type: Obstacle.Type) -> Vector2i:
+	for x in map.width:
+		for y in map.height:
+			var p := Vector2i(x, y)
+			if map.get_stairs_type(p) == type:
+				return p
+	return Utils.INVALID_POS
+
+
+func _has_walkable_route(map: Map, start: Vector2i, goal: Vector2i) -> bool:
+	if start == Utils.INVALID_POS or goal == Utils.INVALID_POS:
+		return false
+	var queue: Array[Vector2i] = [start]
+	var seen: Dictionary = {start: true}
+	while not queue.is_empty():
+		var p: Vector2i = queue.pop_front()
+		if p == goal:
+			return true
+		for offset: Vector2i in Utils.ALL_DIRECTIONS:
+			var next := p + offset
+			if not map.is_in_bounds(next) or seen.has(next):
+				continue
+			var next_cell := map.get_cell(next)
+			var contract_walkable := next_cell.is_walkable()
+			if (
+				not contract_walkable
+				and next_cell.terrain
+				and next_cell.terrain.is_walkable()
+				and next_cell.obstacle
+				and next_cell.obstacle.type == Obstacle.Type.DOOR_CLOSED
+			):
+				contract_walkable = true
+			if not contract_walkable:
+				continue
+			seen[next] = true
+			queue.append(next)
+	return false
+
+
+func _floor_generation_seed(depth: int, attempt: int = 0) -> int:
+	# Keep floor generation on a dedicated deterministic stream. This avoids
+	# topology changing when unrelated systems consume global random numbers.
+	var mixed := generation_seed ^ (depth * 1000003) ^ (attempt * 97409)
+	mixed = absi(mixed)
+	return mixed + 1
+
+
+func _generated_map_meets_t0_contract(map: Map, plan: WorldPlan.LevelPlan) -> bool:
+	if map == null or map.depth != plan.depth:
+		return false
+	var up := _find_stairs(map, Obstacle.Type.STAIRS_UP)
+	var down := _find_stairs(map, Obstacle.Type.STAIRS_DOWN)
+	if plan.up_destination != "" and up == Utils.INVALID_POS:
+		return false
+	if plan.down_destination != "" and down == Utils.INVALID_POS:
+		return false
+	if plan.down_destination == "" and down != Utils.INVALID_POS:
+		return false
+	if up != Utils.INVALID_POS and down != Utils.INVALID_POS and not _has_walkable_route(map, up, down):
+		return false
+	return true
+
+
 func _generate_map(plan: WorldPlan.LevelPlan) -> Map:
 	match plan.type:
 		WorldPlan.LevelType.ARENA:
-			var generator := MapGeneratorFactory.create_generator(
+			seed(_floor_generation_seed(plan.depth))
+			if plan.depth == WorldPlan.FINAL_FLOOR:
+				var final_map := NightRun.make_arena(plan.depth, plan.up_destination)
+				assert(_generated_map_meets_t0_contract(final_map, plan), "Final arena violates T0 map contract")
+				return final_map
+			var arena_generator := MapGeneratorFactory.create_generator(
 				MapGeneratorFactory.GeneratorType.ARENA
 			)
-			return (
-				generator
-				. generate_map(
-					20,
-					15,
-					{
-						"depth": plan.depth,
-					}
-				)
-			)
+			return arena_generator.generate_map(20, 15, {"depth": plan.depth})
 
 		WorldPlan.LevelType.DUNGEON:
-			var generator := MapGeneratorFactory.create_generator(
-				MapGeneratorFactory.GeneratorType.DUNGEON
-			)
-			return (
-				generator
-				. generate_map(
+			# Procedural generation is a contract, not a hope. If a random layout ever
+			# misses stairs or disconnects the route, regenerate immediately. This is
+			# deterministic for a fixed run seed because retries consume the same RNG stream.
+			for attempt in range(8):
+				# Re-seed per floor+attempt so generation is independent of all other
+				# random activity that happened earlier in the run.
+				var floor_seed := _floor_generation_seed(plan.depth, attempt)
+				seed(floor_seed)
+				Dice.set_seed(floor_seed + 17)
+				var generator := MapGeneratorFactory.create_generator(
+					MapGeneratorFactory.GeneratorType.DUNGEON
+				)
+				var target_rooms := mini(36, 26 + int(plan.depth / 3))
+				var candidate: Map = generator.generate_map(
 					30,
 					20,
 					{
-						# Dungeon generation parameters
 						"min_room_size": 5,
 						"max_room_size": 9,
 						"size_variation": 0.6,
 						"room_placement_attempts": 500,
-						"target_room_count": 30,
+						"target_room_count": target_rooms,
 						"border_buffer": 3,
 						"room_expansion_chance": 0.5,
 						"max_expansion_attempts": 3,
 						"horizontal_expansion_bias": 0.5,
-						# Level parameters
 						"depth": plan.depth,
 						"has_up_stairs": plan.up_destination != "",
 						"has_down_stairs": plan.down_destination != "",
 						"has_amulet": plan.has_amulet
 					}
 				)
-			)
+				if _generated_map_meets_t0_contract(candidate, plan):
+					return candidate
+				Log.w("Rejected invalid procedural floor %d (attempt %d/8)" % [plan.depth, attempt + 1])
+			assert(false, "Failed to generate a valid floor %d after 8 attempts" % plan.depth)
+			return null
 
 		_:
 			Log.e("Unsupported level type: %s" % plan.type)
@@ -147,6 +228,8 @@ func _generate_map(plan: WorldPlan.LevelPlan) -> Map:
 
 # Apply an action (presumably from the player) to the world and complete the turn.
 func apply_player_action(action: BaseAction) -> ActionResult:
+	if game_over or player.is_dead:
+		return null
 	Log.i("[color=lime]======== TURN %d STARTED ========[/color]" % World.current_turn)
 	turn_started.emit()
 
@@ -160,7 +243,7 @@ func apply_player_action(action: BaseAction) -> ActionResult:
 	# If the action failed, return early without advancing the turn
 	if not result.success:
 		if result.message:
-			message_logged.emit(result.message)
+			message_logged.emit(result.message, result.message_level)
 		Log.i("[color=gray]==== TURN CANCELLED (Result False) ====[/color]")
 		return result
 
@@ -186,19 +269,11 @@ func apply_player_action(action: BaseAction) -> ActionResult:
 		game_ended.emit()
 		return result
 
-	# Process natural healing
-	if player.nutrition.value >= Nutrition.THRESHOLD_STARVING and player.hp < player.max_hp:
-		# Base healing of 1 HP every 3 turns
-		if current_turn % 3 == 0:
-			var heal_amount := 1
-			# Bonus healing when well fed
-			if player.nutrition.value >= Nutrition.THRESHOLD_SATIATED:
-				heal_amount += 1
-			player.hp = mini(player.hp + heal_amount, player.max_hp)
+	# Recovery is limited to consumables and Sites of Grace.
 
 	# Accumulate energy for all monsters
 	for monster in current_map.get_monsters():
-		monster.energy += monster.get_speed()
+		monster.energy = Monster.SPEED_NORMAL
 
 	# Build a list of results from the action
 	var results: Array[ActionResult] = [result]
@@ -212,13 +287,15 @@ func apply_player_action(action: BaseAction) -> ActionResult:
 
 		# Only act if we have enough energy
 		if monster.energy >= Monster.SPEED_NORMAL:
-			var monster_action := monster.get_next_action(current_map)
+			var monster_action: ActorAction = NightEnemyAction.new(monster)
 			if monster_action:
 				var monster_result := monster_action.apply(current_map)
 				results.append(monster_result)
 			# Consume energy after acting
 			monster.energy -= Monster.SPEED_NORMAL
 			energy_updated.emit(monster)
+
+	NightRun.end_turn()
 
 	# Update area effects
 	update_area_effects()
@@ -261,11 +338,12 @@ func handle_special_level(id: String) -> void:
 			)
 			if confirmed:
 				current_map.find_and_remove_monster(player)
-				message_logged.emit("[color=cyan]You have escaped the dungeon.[/color]")
+				message_logged.emit("[color=cyan]You have escaped the dungeon.[/color]", LogMessages.Level.NORMAL)
 				game_ended.emit()
 
 
 func handle_level_transition(destination_level: String, coming_from_stairs: Obstacle.Type) -> void:
+	NightRun.telegraphs.clear()
 	# Get the level plan for the destination
 	var plan := world_plan.get_level_plan(destination_level)
 	if not plan:
@@ -279,6 +357,8 @@ func handle_level_transition(destination_level: String, coming_from_stairs: Obst
 		maps[destination_level] = map
 
 	# Remove player from current map
+	for monster in current_map.get_monsters().duplicate():
+		if monster.has_meta("family"): current_map.find_and_remove_monster(monster)
 	current_map.find_and_remove_monster(player)
 
 	# Switch to the new map
@@ -291,10 +371,31 @@ func handle_level_transition(destination_level: String, coming_from_stairs: Obst
 		if coming_from_stairs == Obstacle.Type.STAIRS_UP
 		else Obstacle.Type.STAIRS_UP
 	)
+	# A returning entrance may be occupied; move its inhabitant to a nearby free tile.
+	for x in current_map.width:
+		for y in current_map.height:
+			var p := Vector2i(x,y)
+			if current_map.get_stairs_type(p) != target_stairs_type: continue
+			var occupant := current_map.get_monster(p)
+			if occupant == null: continue
+			var moved := false
+			for radius in range(1, maxi(current_map.width, current_map.height)):
+				for dx in range(-radius, radius + 1):
+					for dy in range(-radius, radius + 1):
+						var free := p + Vector2i(dx,dy)
+						if current_map.is_in_bounds(free) and current_map.get_cell(free).is_walkable() and current_map.get_monster(free) == null:
+							current_map.get_cell(free).monster = occupant
+							current_map.get_cell(p).monster = null
+							moved = true
+							break
+					if moved: break
+				if moved: break
 	assert(
 		current_map.add_monster_at_stairs(player, target_stairs_type),
 		"Failed to add player at stairs"
 	)
+
+	NightRun.prepare_map(current_map)
 
 	# Update FOV for new position
 	var player_pos := current_map.find_monster_position(player)
@@ -361,7 +462,7 @@ func update_area_effects() -> void:
 
 	# Log all messages at once
 	for msg in messages:
-		message_logged.emit(msg)
+		message_logged.emit(msg, LogMessages.Level.NORMAL)
 
 
 func update_vision() -> void:
@@ -370,3 +471,4 @@ func update_vision() -> void:
 		current_map.clear_fov(player_pos)
 	else:
 		current_map.compute_fov(player_pos)
+

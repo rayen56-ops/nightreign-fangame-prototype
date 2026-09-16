@@ -1,0 +1,57 @@
+{
+  "stage": "T0-static",
+  "checks": 125,
+  "failures": [],
+  "curve_samples": {
+    "1": {
+      "enemy_count": 5,
+      "hp_multiplier": 1.0,
+      "damage_multiplier": 1.0,
+      "elite_chance": 0.0,
+      "tide": [
+        72,
+        104
+      ]
+    },
+    "5": {
+      "enemy_count": 8,
+      "hp_multiplier": 1.12,
+      "damage_multiplier": 1.06,
+      "elite_chance": 0.044,
+      "tide": [
+        68,
+        100
+      ]
+    },
+    "10": {
+      "enemy_count": 11,
+      "hp_multiplier": 1.27,
+      "damage_multiplier": 1.135,
+      "elite_chance": 0.094,
+      "tide": [
+        63,
+        95
+      ]
+    },
+    "15": {
+      "enemy_count": 14,
+      "hp_multiplier": 1.42,
+      "damage_multiplier": 1.21,
+      "elite_chance": 0.144,
+      "tide": [
+        58,
+        90
+      ]
+    },
+    "19": {
+      "enemy_count": 14,
+      "hp_multiplier": 1.54,
+      "damage_multiplier": 1.27,
+      "elite_chance": 0.168,
+      "tide": [
+        54,
+        86
+      ]
+    }
+  }
+}

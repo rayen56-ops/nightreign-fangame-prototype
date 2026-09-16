@@ -20,6 +20,9 @@ class Split:
 # Add this as a class variable
 var debug_splits: Array[Split] = []
 
+# Seed inherited from DungeonGenerator for the private room-placement RNG.
+var deterministic_generation_seed: int = 1
+
 
 # Abstract base class for map generators
 func generate_map(_width: int, _height: int, _params: Dictionary = {}) -> Map:
@@ -146,6 +149,8 @@ func _generate_bsp_rooms(
 func _generate_dungeon_rooms(width: int, height: int, params: Dictionary = {}) -> Array[Room]:
 	var rooms: Array[Room] = []
 	var rng := RandomNumberGenerator.new()
+	# Independent deterministic room-placement stream.
+	rng.seed = deterministic_generation_seed + 1013904223
 
 	# Parameters with defaults
 	var min_room_size: int = params.get("min_room_size", 5)

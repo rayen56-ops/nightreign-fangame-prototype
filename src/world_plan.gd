@@ -4,6 +4,9 @@ extends RefCounted
 enum WorldType { NORMAL, ARENA }
 enum LevelType { DUNGEON, ESCAPE, END, ARENA }
 
+const TOTAL_FLOORS := 20
+const FINAL_FLOOR := 20
+
 
 class LevelPlan:
 	var id: String
@@ -51,21 +54,26 @@ func _init(world_type: WorldType = WorldType.NORMAL) -> void:
 
 	match world_type:
 		WorldType.NORMAL:
-			# Create our simple 3-level dungeon plan for v1
-
-			# Level 1: Dungeon entrance
-			levels.append(
-				LevelPlan.new("level_1", LevelType.DUNGEON, 1, World.ESCAPE_LEVEL, "level_2")
-			)  # Up leads to escape  # Down leads to level 2
-
-			# Level 2: Middle level
-			levels.append(LevelPlan.new("level_2", LevelType.DUNGEON, 2, "level_1", "level_3"))  # Up leads to level 1  # Down leads to level 3
-
-			# Level 3: Final level with amulet
-			levels.append(LevelPlan.new("level_3", LevelType.DUNGEON, 3, "level_2", "", true))  # Up leads to level 2  # No down stairs  # Has the amulet flag
+			# T0 contract: one continuous 20-floor expedition. Floors 1-19 are
+			# procedural dungeons; floor 20 is the Nightlord arena. Content themes
+			# are layered later, but the transition graph is production-ready now.
+			for depth in range(1, TOTAL_FLOORS + 1):
+				var level_id := "level_%d" % depth
+				var up_destination := World.ESCAPE_LEVEL if depth == 1 else "level_%d" % (depth - 1)
+				var down_destination := "" if depth == FINAL_FLOOR else "level_%d" % (depth + 1)
+				var level_type := LevelType.ARENA if depth == FINAL_FLOOR else LevelType.DUNGEON
+				levels.append(
+					LevelPlan.new(
+						level_id,
+						level_type,
+						depth,
+						up_destination,
+						down_destination,
+						depth == FINAL_FLOOR
+					)
+				)
 
 		WorldType.ARENA:
-			# Create a simple arena
 			levels.append(LevelPlan.new("arena", LevelType.ARENA, 1, "", "", false))
 
 

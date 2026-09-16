@@ -24,7 +24,7 @@ func run() -> void:
 		get_tree().root.add_child(game)
 		get_tree().current_scene = game
 		await get_tree().create_timer(0.2).timeout
-		World.handle_level_transition("level_3", Obstacle.Type.STAIRS_DOWN)
+		World.handle_level_transition("level_20", Obstacle.Type.STAIRS_DOWN)
 		var map := World.current_map
 		map.find_and_remove_monster(World.player)
 		map.get_cell(Vector2i(9,8)).monster = World.player

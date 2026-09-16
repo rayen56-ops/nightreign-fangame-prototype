@@ -24,7 +24,7 @@ func _process(_delta: float) -> void:
 	var map := World.current_map
 	if map == null:
 		return
-	if map.depth < 3:
+	if map.depth < NightRun.boss_floor():
 		var remaining := NightRun.turns_until_next_tide(map)
 		var stage := NightRun.get_night_stage(map)
 		var tide_text := "Tide in %d" % remaining if stage < 2 else "DEEP NIGHT"
@@ -45,7 +45,7 @@ func _draw() -> void:
 	if map == null:
 		return
 	# Night's Tide sits above terrain and below actors/telegraphs.
-	if map.depth < 3 and NightRun.get_night_stage(map) > 0:
+	if map.depth < NightRun.boss_floor() and NightRun.get_night_stage(map) > 0:
 		for x in map.width:
 			for y in map.height:
 				var p := Vector2i(x, y)

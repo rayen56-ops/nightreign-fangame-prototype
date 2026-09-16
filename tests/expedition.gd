@@ -79,6 +79,15 @@ func run() -> void:
 	check(NightRun.protect_damage(World.player, 10) == 1 and not NightRun.sixth_sense, "Sixth Sense prevents one lethal hit")
 	check(NightRun.protect_damage(World.player, 10) == 10, "Sixth Sense cannot prevent a second hit")
 	map = sandbox()
+	NightRun.floor_turns[map.id] = int(NightRun.data.night_tide.thresholds[0]) - 1
+	World.apply_player_action(PlayerRestAction.new())
+	check(NightRun.get_night_stage(map) == 1, "Night's Tide enters encroaching stage on schedule")
+	NightRun.floor_turns[map.id] = int(NightRun.data.night_tide.thresholds[1]) - 1
+	relocate(World.player, Vector2i(1,1))
+	var tide_hp := World.player.hp
+	World.apply_player_action(PlayerRestAction.new())
+	check(NightRun.get_night_stage(map) == 2 and World.player.hp == tide_hp - int(NightRun.data.night_tide.damage[1]), "Deep Night damages player outside safe region")
+	map = sandbox()
 	wolf = NightRun.spawn_enemy("wolf", map, Vector2i(9,7))
 	var other := NightRun.spawn_enemy("wolf", map, Vector2i(10,7))
 	NightRun.charge = 100
@@ -135,6 +144,15 @@ func run() -> void:
 	NightRun.resolve_melee(World.player,boss)
 	NightRun.resolve_melee(World.player,boss)
 	check(boss.get_meta("stagger", 0) == 1, "three holy strikes stagger boss")
+	map = sandbox()
+	boss = NightRun.spawn_enemy("gladius", map, Vector2i(9,5))
+	boss.hp = int(boss.max_hp / 2)
+	World.apply_player_action(PlayerRestAction.new())
+	var echoes := 0
+	for enemy in map.get_monsters():
+		if enemy.get_meta("night_enemy", "") == "gladius_echo":
+			echoes += 1
+	check(bool(boss.get_meta("split_done", false)) and echoes == 2, "Gladius splits into two hunting echoes at half health")
 	map = sandbox("revenant")
 	World.player.hp = 1
 	NightRun.spawn_enemy("wolf", map, Vector2i(9,8))
@@ -196,6 +214,8 @@ func expedition(id: String) -> void:
 	var visited: Array[int] = [1]
 	var actions := 0
 	while not World.game_over and actions < 700:
+		if World.current_map.depth >= 3:
+			break
 		actions += 1
 		var map := World.current_map
 		var p := pos(World.player)
@@ -237,8 +257,8 @@ func expedition(id: String) -> void:
 		World.apply_player_action(action)
 		if not World.current_map.depth in visited: visited.append(World.current_map.depth)
 		await get_tree().process_frame
-	check(visited == [1,2,3], id + " traverses all three floors via stairs")
-	check(NightRun.won and not World.player.is_dead, id + " defeats Gladius through real actions")
+	check(visited == [1,2,3], id + " traverses the first three procedural floors via real actions")
+	check(not World.player.is_dead, id + " survives the three-floor smoke route")
 	expeditions.append({"character": id, "floors": visited, "actions": actions, "hp": World.player.hp, "won": NightRun.won, "runes": NightRun.runes})
 	World.initialize()
 	check(not World.game_over and not NightRun.won and NightRun.runes == 0 and NightRun.flasks == 3, id + " new expedition resets run state")

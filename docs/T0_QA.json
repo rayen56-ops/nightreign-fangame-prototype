@@ -1,0 +1,12 @@
+{
+	"checks": 246,
+	"engine": "4.6.3-stable (official)",
+	"failures": [],
+	"floors": 20,
+	"sampled_seed_fingerprints": {
+		"1": "f244145ee57e9c806037a6ba12463421f87da3db4b9d618e1bc0bbfece4ec40d",
+		"10": "f1ef368823543a22a1cda00ff5c7329edea9777cf59911835cb628f871689760",
+		"19": "c7f4d35b59392c239d739b7ed6bdcbeb78b2a4a064d844f81bcf07fe1c5df84e"
+	},
+	"stage": "T0"
+}

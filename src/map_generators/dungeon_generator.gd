@@ -169,17 +169,21 @@ func generate_map(width: int, height: int, params: Dictionary = {}) -> Map:
 	if MonsterFactory.monster_data.is_empty():
 		MonsterFactory._static_init()
 
-	# Initialize Dice RNG
-	Dice.set_seed()
-
 	var depth: int = params.get("depth", 1)
+	var generation_seed: int = int(params.get("generation_seed", 1))
+	deterministic_generation_seed = generation_seed
+
 	var attempts := 50
 	var map: Map
+	var internal_attempt := 0
 
 	while attempts > 0:
 		map = _initialize_empty_map(width, height, depth)
+		# Preserve the original shared Dice/feature RNG, but seed it from the floor.
 		_rng = RandomNumberGenerator.new()
+		_rng.seed = generation_seed + 1664525 + internal_attempt * 69069
 		Dice._rng = _rng
+		internal_attempt += 1
 
 		if not _generate_basic_structure(map, width, height, params):
 			attempts -= 1

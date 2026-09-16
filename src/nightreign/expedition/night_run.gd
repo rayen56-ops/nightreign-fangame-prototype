@@ -16,10 +16,86 @@ var telegraphs: Dictionary = {}
 var run_log: Array[String] = []
 var healing_fields: Array[Dictionary] = []
 var pending_ghosts: Array[Dictionary] = []
+var floor_turns: Dictionary = {}
+var night_stage: Dictionary = {}
 const FAMILY := ["Helen", "Frederick", "Sebastian"]
 
 func character_data() -> Dictionary:
 	return data.characters[CharacterCatalog.selected_id]
+
+func progression() -> Dictionary:
+	return data.floor_progression
+
+func total_floors() -> int:
+	return int(progression().total_floors)
+
+func boss_floor() -> int:
+	return int(progression().boss_floor)
+
+func milestone_count(depth: int) -> int:
+	var count := 0
+	for milestone: Variant in progression().milestones:
+		if depth >= int(milestone):
+			count += 1
+	return count
+
+func floor_enemy_count(depth: int) -> int:
+	if depth >= boss_floor():
+		return 0
+	var cfg: Dictionary = progression().enemy_count
+	var count := int(cfg.base)
+	count += int((depth - 1) / 2) * int(cfg.per_two_floors)
+	count += milestone_count(depth) * int(cfg.milestone_bonus)
+	return mini(int(cfg.max), count)
+
+func floor_hp_multiplier(depth: int) -> float:
+	var cfg: Dictionary = progression().hp_multiplier
+	return float(cfg.base) + float(maxi(0, depth - 1)) * float(cfg.per_floor)
+
+func floor_damage_multiplier(depth: int) -> float:
+	var cfg: Dictionary = progression().damage_multiplier
+	return float(cfg.base) + float(maxi(0, depth - 1)) * float(cfg.per_floor)
+
+func floor_rune_multiplier(depth: int) -> float:
+	var cfg: Dictionary = progression().rune_multiplier
+	return float(cfg.base) + float(maxi(0, depth - 1)) * float(cfg.per_floor)
+
+func floor_elite_chance(depth: int) -> float:
+	if depth >= boss_floor():
+		return 0.0
+	var cfg: Dictionary = progression().elite
+	var chance := float(cfg.base_chance)
+	chance += float(maxi(0, depth - 1)) * float(cfg.per_floor)
+	chance += float(milestone_count(depth)) * float(cfg.milestone_bonus)
+	return minf(float(cfg.max_chance), chance)
+
+func floor_enemy_pool(depth: int) -> Array[String]:
+	var pool: Array[String] = []
+	for raw_entry: Variant in progression().enemy_pools:
+		var entry: Dictionary = raw_entry
+		if depth < int(entry.from_floor):
+			continue
+		pool.clear()
+		for raw_id: Variant in entry.ids:
+			pool.append(String(raw_id))
+	return pool
+
+func floor_weapon_drops(depth: int) -> int:
+	var cfg: Dictionary = progression().weapon_drops
+	var count := int(cfg.base) + int((depth - 1) / 7) * int(cfg.per_seven_floors)
+	return mini(int(cfg.max), count)
+
+func floor_warming_stones(depth: int) -> int:
+	var cfg: Dictionary = progression().warming_stones
+	var count := int(cfg.base) + milestone_count(depth) * int(cfg.milestone_bonus)
+	return mini(int(cfg.max), count)
+
+func night_threshold(map: Map, index: int) -> int:
+	var cfg: Dictionary = data.night_tide
+	var base := int(cfg.thresholds[index])
+	var minimum := int(cfg.minimum_thresholds[index])
+	var reduction := int(cfg.threshold_reduction_per_floor[index]) * maxi(0, map.depth - 1)
+	return maxi(minimum, base - reduction)
 
 func note(message: String) -> void:
 	run_log.append(message)
@@ -40,6 +116,8 @@ func reset_run() -> void:
 	run_log.clear()
 	healing_fields.clear()
 	pending_ghosts.clear()
+	floor_turns.clear()
+	night_stage.clear()
 	World.player.max_hp = int(character_data().hp)
 	World.player.hp = World.player.max_hp
 	World.player.inventory.clear()
@@ -84,12 +162,28 @@ func weapon_description(item: Item) -> String:
 		parts.append(stat + " " + entry.scaling[stat])
 	return "Scaling: %s\nAffinity: %s\nYour attack: %d\nNo stat requirement." % [", ".join(parts), entry.affinity, weapon_damage(item)]
 
-func spawn_enemy(id: String, map: Map, pos: Vector2i) -> Monster:
+func spawn_enemy(id: String, map: Map, pos: Vector2i, depth: int = -1, force_elite: bool = false) -> Monster:
 	var entry: Dictionary = data.enemies[id]
 	var enemy := MonsterFactory.create_monster(StringName(entry.template))
+	if depth < 1:
+		depth = map.depth
+	var scales_with_floor := bool(entry.get("scales_with_floor", true))
+	var hp_multiplier := floor_hp_multiplier(depth) if scales_with_floor else 1.0
+	var damage_multiplier := floor_damage_multiplier(depth) if scales_with_floor else 1.0
+	var rune_multiplier := floor_rune_multiplier(depth) if scales_with_floor else 1.0
+	var elite := force_elite and id not in ["gladius", "gladius_echo"]
+	if elite:
+		var elite_cfg: Dictionary = progression().elite
+		hp_multiplier *= float(elite_cfg.hp_multiplier)
+		damage_multiplier *= float(elite_cfg.damage_multiplier)
+		rune_multiplier *= float(elite_cfg.rune_multiplier)
 	enemy.set_meta("night_enemy", id)
-	enemy.name = entry.name
-	enemy.max_hp = int(entry.hp)
+	enemy.set_meta("night_depth", depth)
+	enemy.set_meta("night_elite", elite)
+	enemy.set_meta("night_damage", maxi(1, roundi(float(entry.damage) * damage_multiplier)))
+	enemy.set_meta("night_runes", maxi(0, roundi(float(entry.runes) * rune_multiplier)))
+	enemy.name = ("Night-Touched " if elite else "") + String(entry.name)
+	enemy.max_hp = maxi(1, roundi(float(entry.hp) * hp_multiplier))
 	enemy.hp = enemy.max_hp
 	enemy.inventory.clear()
 	for slot in Equipment.Slot.values():
@@ -103,6 +197,8 @@ func prepare_map(map: Map) -> void:
 	if prepared.has(map.id):
 		return
 	prepared[map.id] = true
+	floor_turns[map.id] = 0
+	night_stage[map.id] = 0
 	telegraphs.clear()
 	var start := map.find_monster_position(World.player)
 	var floors: Array[Vector2i] = []
@@ -120,29 +216,126 @@ func prepare_map(map: Map) -> void:
 			if cell.is_walkable() and cell.obstacle == null and p.distance_to(start) > 4:
 				floors.append(p)
 	floors.shuffle()
-	var types := ["soldier", "wolf", "skeleton"]
-	for i in mini(5 + map.depth if map.depth < 3 else 0, floors.size()):
-		spawn_enemy(types[i % types.size()], map, floors.pop_back())
-	if map.depth == 3 and not floors.is_empty():
-		spawn_enemy("gladius", map, Vector2i(9, 4))
-		floors.erase(Vector2i(9, 4))
-	for id: String in data.weapons:
-		if floors.is_empty(): break
-		map.add_item(floors.pop_back(), make_weapon(id))
-	# Holy armament is guaranteed at the entrance, making the first boss weakness usable.
-	map.add_item(start, make_weapon("sacred_blade"))
-	for i in mini(3, floors.size()):
+
+	if map.depth == boss_floor():
+		var preferred := Vector2i(int(map.width / 2), int(map.height / 3))
+		var boss_pos := preferred
+		if not map.is_in_bounds(boss_pos) or not map.get_cell(boss_pos).is_walkable() or map.get_monster(boss_pos) != null:
+			boss_pos = floors.pop_back() if not floors.is_empty() else preferred
+		spawn_enemy("gladius", map, boss_pos, map.depth)
+		return
+
+	var pool := floor_enemy_pool(map.depth)
+	if pool.is_empty():
+		pool.append("wolf")
+		pool.append("soldier")
+	for i in mini(floor_enemy_count(map.depth), floors.size()):
+		var enemy_id: String = pool[randi_range(0, pool.size() - 1)]
+		var elite := randf() < floor_elite_chance(map.depth)
+		spawn_enemy(enemy_id, map, floors.pop_back(), map.depth, elite)
+
+	var weapon_ids: Array = data.weapons.keys()
+	for i in mini(floor_weapon_drops(map.depth), floors.size()):
+		var weapon_id := String(weapon_ids[randi_range(0, weapon_ids.size() - 1)])
+		map.add_item(floors.pop_back(), make_weapon(weapon_id))
+	# Preserve a fair boss-prep route without handing out Holy on every floor.
+	if map.depth == boss_floor() - 1:
+		map.add_item(start, make_weapon("sacred_blade"))
+
+	for i in mini(floor_warming_stones(map.depth), floors.size()):
 		var bolus := Item.new(true)
 		bolus.name = "Warming Stone"
 		bolus.set_meta("warming_stone", true)
 		bolus.type = Item.Type.CONSUMABLE
-		bolus.hp = 1 # Marks the item as usable; the action creates a healing field.
+		bolus.hp = 1
 		bolus._mass = 0
 		bolus.sprite_name = ItemFactory.create_item(&"poison_splash_potion").sprite_name
 		map.add_item(floors.pop_back(), bolus)
 
-func make_arena() -> Map:
-	var map := Map.new(19, 17, 3, "level_3")
+func night_center(map: Map) -> Vector2i:
+	for x in map.width:
+		for y in map.height:
+			var p := Vector2i(x, y)
+			if map.get_stairs_type(p) == Obstacle.Type.STAIRS_DOWN:
+				return p
+	# Boss arenas and unusual test maps may not have a descent.
+	return Vector2i(int(map.width / 2), int(map.height / 2))
+
+func get_night_stage(map: Map) -> int:
+	return int(night_stage.get(map.id, 0))
+
+func get_floor_turns(map: Map) -> int:
+	return int(floor_turns.get(map.id, 0))
+
+func turns_until_next_tide(map: Map) -> int:
+	if map.depth >= boss_floor():
+		return -1
+	var turns := get_floor_turns(map)
+	var stage := get_night_stage(map)
+	if stage >= 2:
+		return 0
+	return maxi(0, night_threshold(map, stage) - turns)
+
+func safe_radius(map: Map) -> int:
+	var stage := get_night_stage(map)
+	if stage <= 0:
+		return maxi(map.width, map.height)
+	var radii: Array = data.night_tide.safe_radius
+	return int(radii[mini(stage - 1, radii.size() - 1)])
+
+func is_in_tide(map: Map, pos: Vector2i) -> bool:
+	if map == null or map.depth >= boss_floor() or get_night_stage(map) <= 0:
+		return false
+	var center := night_center(map)
+	var delta := pos - center
+	return maxi(absi(delta.x), absi(delta.y)) > safe_radius(map)
+
+func _advance_nights_tide(map: Map) -> void:
+	if map.depth >= boss_floor() or World.player.is_dead:
+		return
+	var turns := get_floor_turns(map) + 1
+	floor_turns[map.id] = turns
+	var stage := 0
+	for index in range(2):
+		if turns >= night_threshold(map, index):
+			stage += 1
+	var old_stage := get_night_stage(map)
+	if stage != old_stage:
+		night_stage[map.id] = stage
+		if stage == 1:
+			note("Night's Tide encroaches. Move toward the descent.")
+		elif stage >= 2:
+			note("Deep Night closes in. The safe route is collapsing.")
+	var player_pos := map.find_monster_position(World.player)
+	if is_in_tide(map, player_pos):
+		var damages: Array = data.night_tide.damage
+		var damage := int(damages[mini(stage - 1, damages.size() - 1)])
+		damage = protect_damage(World.player, damage)
+		World.player.hp = maxi(0, World.player.hp - damage)
+		note("Night's Tide burns for %d damage." % damage)
+		if World.player.hp <= 0:
+			World.player.is_dead = true
+
+func _spawn_gladius_echoes(actor: Monster, map: Map, result: ActionResult) -> bool:
+	var origin := map.find_monster_position(actor)
+	var spawned := 0
+	for offset: Vector2i in [Vector2i.LEFT * 2, Vector2i.RIGHT * 2, Vector2i.UP * 2, Vector2i.DOWN * 2, Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+		if spawned >= 2:
+			break
+		var pos := origin + offset
+		if not map.is_in_bounds(pos) or not map.get_cell(pos).is_walkable() or map.get_monster(pos) != null:
+			continue
+		var echo := spawn_enemy("gladius_echo", map, pos)
+		echo.set_meta("boss_echo", true)
+		spawned += 1
+	if spawned > 0:
+		telegraphs.erase(actor.get_instance_id())
+		result.message = "Gladius divides into hunting echoes!"
+		return true
+	return false
+
+func make_arena(depth: int = 20, up_destination: String = "level_19") -> Map:
+	var map := Map.new(19, 17, depth, "level_%d" % depth)
 	for x in map.width:
 		for y in map.height:
 			var terrain := Terrain.new()
@@ -150,7 +343,7 @@ func make_arena() -> Map:
 			map.get_cell(Vector2i(x,y)).terrain = terrain
 	var stairs := Obstacle.new()
 	stairs.type = Obstacle.Type.STAIRS_UP
-	stairs.destination_level = "level_2"
+	stairs.destination_level = up_destination
 	map.get_cell(Vector2i(9, 13)).obstacle = stairs
 	return map
 
@@ -301,7 +494,7 @@ func resolve_melee(attacker: Monster, defender: Monster) -> Combat.MeleeAttackRe
 				if buildup >= 3:
 					defender.set_meta("stagger", 1)
 	elif attacker.has_meta("night_enemy"):
-		amount = int(data.enemies[attacker.get_meta("night_enemy")].damage)
+		amount = int(attacker.get_meta("night_damage", data.enemies[attacker.get_meta("night_enemy")].damage))
 	elif attacker.has_meta("family"):
 		amount = [5, 8, 6][int(attacker.get_meta("family"))] + (4 if immortal > 0 else 0)
 	if defender == World.player: charge = mini(100, charge + 6)
@@ -313,10 +506,10 @@ func resolve_melee(attacker: Monster, defender: Monster) -> Combat.MeleeAttackRe
 func on_killed(monster: Monster) -> void:
 	if not monster.has_meta("night_enemy"): return
 	var id: String = monster.get_meta("night_enemy")
-	runes += int(data.enemies[id].runes)
+	runes += int(monster.get_meta("night_runes", data.enemies[id].runes))
 	charge = mini(100, charge + 18)
 	telegraphs.erase(monster.get_instance_id())
-	if CharacterCatalog.selected_id == "revenant" and id != "gladius" and randf() < 0.25:
+	if CharacterCatalog.selected_id == "revenant" and id not in ["gladius", "gladius_echo"] and randf() < 0.25:
 		pending_ghosts.append({"position": World.current_map.find_monster_position(monster), "map": World.current_map.id})
 	if id == "gladius":
 		won = true
@@ -329,6 +522,7 @@ func _finish_victory() -> void:
 	World.game_ended.emit()
 
 func end_turn() -> void:
+	_advance_nights_tide(World.current_map)
 	cooldown = maxi(0, cooldown - 1)
 	immortal = maxi(0, immortal - 1)
 	World.player.nutrition.value = Nutrition.STARTING_NUTRITION
@@ -394,6 +588,10 @@ func act_enemy(actor: Monster, map: Map, result: ActionResult) -> bool:
 		hurt(target, [5, 8, 6][int(actor.get_meta("family"))] + (4 if immortal > 0 else 0), result)
 		return true
 	if actor.get_meta("night_enemy", "") == "gladius":
+		if actor.hp <= actor.max_hp / 2 and not bool(actor.get_meta("split_done", false)):
+			actor.set_meta("split_done", true)
+			if _spawn_gladius_echoes(actor, map, result):
+				return true
 		if int(actor.get_meta("recovery", 0)) > 0:
 			actor.set_meta("recovery", 0)
 			result.message = "Gladius recovers: an opening to attack."
