@@ -116,9 +116,30 @@ func _to_string() -> String:
         melee = melee.replace(target_anchor, target_fixed, 1)
     melee_path.write_text(melee, encoding="utf-8")
 
-    # T0 generation contract must guarantee an immediately executable exit from spawn.
     world_path = Path("src/world.gd")
     world = world_path.read_text(encoding="utf-8")
+
+    # Side effects must never live inside assert(). Godot release exports can
+    # compile assertions out, which previously removed player placement entirely.
+    old_placement = '''\t# Add the player to the main entrance
+\tassert(
+\t\tmap.add_monster_at_stairs(player, Obstacle.Type.STAIRS_UP),
+\t\t"Failed to add player to main entrance"
+\t)
+'''
+    new_placement = '''\t# Add the player to the main entrance. Never put side effects inside assert():
+\t# release exports may compile assertions out entirely.
+\tvar player_placed := map.add_monster_at_stairs(player, Obstacle.Type.STAIRS_UP)
+\tassert(player_placed, "Failed to add player to main entrance")
+\tif not player_placed:
+\t\tpush_error("Failed to add player to main entrance")
+\t\treturn
+'''
+    if old_placement in world:
+        world = world.replace(old_placement, new_placement, 1)
+    assert "var player_placed := map.add_monster_at_stairs" in world
+
+    # T0 generation contract must guarantee an immediately executable exit from spawn.
     if "func _has_immediate_player_egress(" not in world:
         route_anchor = "\n\nfunc _has_walkable_route(map: Map, start: Vector2i, goal: Vector2i) -> bool:"
         assert route_anchor in world
