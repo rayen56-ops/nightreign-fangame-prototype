@@ -1,0 +1,1 @@
+Eight-direction art integration in progress.
