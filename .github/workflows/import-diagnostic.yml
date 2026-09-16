@@ -1,0 +1,75 @@
+name: Import Diagnostic
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Godot 4.6.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.3-stable_linux.x86_64
+
+      - name: Diagnose clean and patched imports
+        shell: bash
+        run: |
+          set +e
+          rm -rf .godot
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --editor --import --path . --quit > /tmp/base-import.log 2>&1
+          base_status=$?
+
+          rm -rf .godot
+          python3 tools/patch_game_input.py > /tmp/patch.log 2>&1
+          patch_status=$?
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --editor --import --path . --quit > /tmp/patched-import.log 2>&1
+          patched_status=$?
+          set -e
+
+          mkdir -p docs
+          {
+            echo "commit=${GITHUB_SHA}"
+            echo "base_status=${base_status}"
+            echo "patch_status=${patch_status}"
+            echo "patched_status=${patched_status}"
+            echo
+            echo "=== BASE ERRORS ==="
+            grep -nE -C 3 "SCRIPT ERROR|Parse Error|ERROR:|Error" /tmp/base-import.log || tail -n 120 /tmp/base-import.log
+            echo
+            echo "=== PATCH TOOL ==="
+            cat /tmp/patch.log
+            echo
+            echo "=== PATCHED ERRORS ==="
+            grep -nE -C 3 "SCRIPT ERROR|Parse Error|ERROR:|Error" /tmp/patched-import.log || tail -n 120 /tmp/patched-import.log
+          } > docs/import-diagnostic.txt
+
+      - name: Commit diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "nightreign-diagnostic-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -- scenes/game/game.gd
+          git add docs/import-diagnostic.txt
+          if git diff --cached --quiet; then
+            echo "Diagnostic unchanged"
+            exit 0
+          fi
+          git commit -m "CI diagnostic: capture Godot import errors"
+          git push origin HEAD:main
