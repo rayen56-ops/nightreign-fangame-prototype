@@ -1,4 +1,4 @@
-commit=9ad488c393a25c8e75625b64d3ece1657cf1de34
+commit=24837957049031afd73c95aaca189d18bfe2cccb
 base_status=0
 patch_status=0
 patched_status=0
@@ -47,7 +47,7 @@ patched_status=0
 41-[  83% ] [90m[1mfirst_scan_filesystem[22m | Starting file scan...[39m[0m
 
 === PATCH TOOL ===
-Patched scenes/game/game.gd for robust Web input and browser telemetry
+Patched scenes/game/game.gd for robust Web input and staged browser telemetry
 
 === PATCHED ERRORS ===
 1-Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
