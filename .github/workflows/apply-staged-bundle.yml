@@ -46,6 +46,7 @@ jobs:
           cat .patch/t0_assets.part* | base64 -d > /tmp/t0_assets.tar.gz
           echo "f4d5ba95c17c7aaceef6ce00f40532469486afc3fcb6831ae94cde13cc0a8697  /tmp/t0_assets.tar.gz" | sha256sum -c -
           tar -xzf /tmp/t0_assets.tar.gz
+          python3 .patch/fix_deterministic_rng.py
           python3 tools/validate_t0.py
 
       - name: Install Godot 4.6.3
@@ -90,7 +91,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f .patch/t0_bundle.part* .patch/t0_assets.part* .patch/t0_ready.txt
+          rm -f .patch/t0_bundle.part* .patch/t0_assets.part* .patch/t0_ready.txt .patch/fix_deterministic_rng.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
