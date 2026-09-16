@@ -1,0 +1,162 @@
+name: Apply Gameplay Input Repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-game-input.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch game input and browser telemetry
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scenes/game/game.gd')
+          text = p.read_text(encoding='utf-8')
+
+          # Gameplay should see keyboard events before GUI when no modal owns them.
+          old = 'func _unhandled_input(event: InputEvent) -> void:'
+          if old in text:
+              text = text.replace(old, 'func _input(event: InputEvent) -> void:', 1)
+          elif 'func _input(event: InputEvent) -> void:' not in text:
+              raise SystemExit('Input handler signature not found')
+
+          modal = '\tif Modals.has_visible_modals():\n'
+          if '\tif event is InputEventKey and event.echo:\n' not in text:
+              if modal not in text:
+                  raise SystemExit('Modal guard not found')
+              text = text.replace(modal, '\tif event is InputEventKey and event.echo:\n\t\treturn\n\n' + modal, 1)
+
+          if 'var action := await _check_player_input()' in text:
+              text = text.replace('var action := await _check_player_input()', 'var action := await _check_player_input(event)', 1)
+
+          start_old = 'func _check_player_input() -> BaseAction:'
+          start_new = 'func _check_player_input(event: InputEvent) -> BaseAction:'
+          if start_old in text:
+              start = text.index(start_old)
+              end = text.index('\n\nfunc _handle_player_action(', start)
+              region = text[start:end]
+              region = region.replace(start_old, start_new, 1)
+              region = region.replace('Input.is_action_just_pressed(', 'event.is_action_pressed(')
+              text = text[:start] + region + text[end:]
+          elif start_new not in text:
+              raise SystemExit('Player input function not found')
+
+          # Browser-readable gameplay state. This is test-only observability, not gameplay logic.
+          if '_publish_web_qa("ready")' not in text:
+              needle = '\t# Update actors\n\t_update_actors()\n\n\nfunc _process'
+              if needle not in text:
+                  raise SystemExit('Initial actor update anchor not found')
+              text = text.replace(needle, '\t# Update actors\n\t_update_actors()\n\t_publish_web_qa("ready")\n\n\nfunc _process', 1)
+
+          if 'func _publish_web_qa(' not in text:
+              needle = '\t# Ready for next input\n\twaiting_for_player_input = true\n\n\nfunc _update_actors() -> void:'
+              if needle not in text:
+                  raise SystemExit('Action completion anchor not found')
+              telemetry = '''\t# Ready for next input
+\twaiting_for_player_input = true
+\t_publish_web_qa("action")
+
+
+func _publish_web_qa(last_action: String = "") -> void:
+\tif not OS.has_feature("web") or not World.current_map or not World.player:
+\t\treturn
+\tvar pos := World.current_map.find_monster_position(World.player)
+\tif pos == Utils.INVALID_POS:
+\t\treturn
+\tvar walkable: Array[String] = []
+\tvar dirs := {
+\t\t"w": Vector2i.UP,
+\t\t"d": Vector2i.RIGHT,
+\t\t"s": Vector2i.DOWN,
+\t\t"a": Vector2i.LEFT,
+\t\t"q": Vector2i.UP + Vector2i.LEFT,
+\t\t"e": Vector2i.UP + Vector2i.RIGHT,
+\t\t"z": Vector2i.DOWN + Vector2i.LEFT,
+\t\t"c": Vector2i.DOWN + Vector2i.RIGHT,
+\t}
+\tfor key in dirs:
+\t\tvar target: Vector2i = pos + dirs[key]
+\t\tif not World.current_map.is_in_bounds(target):
+\t\t\tcontinue
+\t\tvar cell := World.current_map.get_cell(target)
+\t\tif cell.is_walkable() and World.current_map.get_monster(target) == null:
+\t\t\twalkable.append(key)
+\tvar player_actor := get_tree().get_first_node_in_group("player")
+\tvar payload := JSON.stringify({
+\t\t"ready": true,
+\t\t"turn": World.current_turn,
+\t\t"floor": World.current_map.depth,
+\t\t"x": pos.x,
+\t\t"y": pos.y,
+\t\t"waiting_for_input": waiting_for_player_input,
+\t\t"last_action": last_action,
+\t\t"walkable": walkable,
+\t\t"player_actor_visible": player_actor != null and player_actor.visible,
+\t})
+\tJavaScriptBridge.eval("window.__nightreignQA = %s;" % payload)
+
+
+func _update_actors() -> void:'''
+              text = text.replace(needle, telemetry, 1)
+
+          p.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Static QA
+        run: python3 tools/validate_t0.py
+
+      - name: Install Godot 4.6.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.3-stable_linux.x86_64
+
+      - name: Import and parse check
+        shell: bash
+        run: |
+          set -o pipefail
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --editor --import --path . --quit 2>&1 | tee /tmp/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error" /tmp/import.log
+
+      - name: Native runtime gate
+        shell: bash
+        run: |
+          set -o pipefail
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . res://tests/t0_core.tscn --quit-after 1800 2>&1 | tee /tmp/runtime.log
+          ! grep -E "SCRIPT ERROR|Parse Error" /tmp/runtime.log
+          python3 - <<'PY'
+          import json
+          r=json.load(open('docs/T0_QA.json', encoding='utf-8'))
+          assert r.get('checks') == 246 and not r.get('failures'), r
+          PY
+
+      - name: Commit verified gameplay fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .godot
+          git config user.name "nightreign-prototype-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scenes/game/game.gd docs/T0_QA.json docs/T0_STATIC_QA.json
+          if git diff --cached --quiet; then
+            echo "No gameplay repair change needed."
+            exit 0
+          fi
+          git commit -m "T0 Web: event-driven gameplay input and browser telemetry"
+          git push origin HEAD:main
