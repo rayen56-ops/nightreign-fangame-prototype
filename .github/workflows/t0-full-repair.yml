@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/t0-full-repair.yml'
+      - 'tools/t0_repair.py'
+      - 'tools/patch_game_input.py'
+      - 'tools/web_playability_smoke.mjs'
   workflow_dispatch:
 
 permissions:
