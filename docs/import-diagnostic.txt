@@ -1,0 +1,93 @@
+commit=6d611e2917cc4564775eaf374968f7752fdb4ba4
+base_status=0
+patch_status=0
+patched_status=0
+
+=== BASE ERRORS ===
+1-Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+2-
+3:ERROR: Cannot open file 'res://.godot/imported/PixelOperator.ttf-b3f520c2c2e6dc96a34563ed6f61336e.fontdata'.
+4-   at: load (core/io/resource_format_binary.cpp:1220)
+5:ERROR: Failed loading resource: res://.godot/imported/PixelOperator.ttf-b3f520c2c2e6dc96a34563ed6f61336e.fontdata.
+6-   at: _load (core/io/resource_loader.cpp:343)
+7:ERROR: Failed loading resource: res://assets/fonts/pixel_operator/PixelOperator.ttf.
+8-   at: _load (core/io/resource_loader.cpp:343)
+9:ERROR: Error loading custom project font 'res://assets/fonts/pixel_operator/PixelOperator.ttf'
+10-   at: initialize_theme (scene/theme/theme_db.cpp:79)
+11-[   0% ] [90m[1mfirst_scan_filesystem[22m | Started Project initialization (5 steps)[39m[0m
+12-[   0% ] [90m[1mfirst_scan_filesystem[22m | Scanning file structure...[39m[0m
+13-[  16% ] [90m[1mfirst_scan_filesystem[22m | Loading global class names...[39m[0m
+14-[  33% ] [90m[1mfirst_scan_filesystem[22m | Verifying GDExtensions...[39m[0m
+15-[  50% ] [90m[1mfirst_scan_filesystem[22m | Creating autoload scripts...[39m[0m
+16:SCRIPT ERROR: Parse Error: Too many arguments for "new()" call. Expected at most 1 but received 2.
+17-          at: GDScript::reload (res://src/monster_ai.gd:102)
+18:SCRIPT ERROR: Parse Error: Invalid argument for "new()" function: argument 1 should be "Vector2i" but is "Monster".
+19-          at: GDScript::reload (res://src/monster_ai.gd:102)
+20:SCRIPT ERROR: Parse Error: Too many arguments for "new()" call. Expected at most 1 but received 2.
+21-          at: GDScript::reload (res://src/monster_ai.gd:144)
+22:SCRIPT ERROR: Parse Error: Invalid argument for "new()" function: argument 1 should be "Vector2i" but is "Monster".
+23-          at: GDScript::reload (res://src/monster_ai.gd:144)
+24:SCRIPT ERROR: Parse Error: Too many arguments for "new()" call. Expected at most 1 but received 2.
+25-          at: GDScript::reload (res://src/monster_ai.gd:169)
+26:SCRIPT ERROR: Parse Error: Invalid argument for "new()" function: argument 1 should be "Vector2i" but is "Monster".
+27-          at: GDScript::reload (res://src/monster_ai.gd:169)
+28-res://assets/fonts/pixel_operator/PixelOperatorHB.ttf: Pixel font detected, disabling subpixel positioning.
+29-res://assets/fonts/pixel_operator/PixelOperator-Bold.ttf: Pixel font detected, disabling subpixel positioning.
+30:SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+31-          at: GDScript::reload (res://src/monster.gd:0)
+32:SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+33-          at: GDScript::reload (res://src/map_cell.gd:0)
+34:SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+35-          at: GDScript::reload (res://src/map.gd:0)
+36:SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+37-          at: GDScript::reload (res://src/nightreign/expedition/night_run.gd:0)
+38:ERROR: Failed to load script "res://src/nightreign/expedition/night_run.gd" with error "Parse error".
+39-   at: load (modules/gdscript/gdscript.cpp:2907)
+40-[  66% ] [90m[1mfirst_scan_filesystem[22m | Initializing plugins...[39m[0m
+41-[  83% ] [90m[1mfirst_scan_filesystem[22m | Starting file scan...[39m[0m
+
+=== PATCH TOOL ===
+Patched scenes/game/game.gd for robust Web input and browser telemetry
+
+=== PATCHED ERRORS ===
+1-Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+2-
+3:ERROR: Cannot open file 'res://.godot/imported/PixelOperator.ttf-b3f520c2c2e6dc96a34563ed6f61336e.fontdata'.
+4-   at: load (core/io/resource_format_binary.cpp:1220)
+5:ERROR: Failed loading resource: res://.godot/imported/PixelOperator.ttf-b3f520c2c2e6dc96a34563ed6f61336e.fontdata.
+6-   at: _load (core/io/resource_loader.cpp:343)
+7:ERROR: Failed loading resource: res://assets/fonts/pixel_operator/PixelOperator.ttf.
+8-   at: _load (core/io/resource_loader.cpp:343)
+9:ERROR: Error loading custom project font 'res://assets/fonts/pixel_operator/PixelOperator.ttf'
+10-   at: initialize_theme (scene/theme/theme_db.cpp:79)
+11-[   0% ] [90m[1mfirst_scan_filesystem[22m | Started Project initialization (5 steps)[39m[0m
+12-[   0% ] [90m[1mfirst_scan_filesystem[22m | Scanning file structure...[39m[0m
+13-[  16% ] [90m[1mfirst_scan_filesystem[22m | Loading global class names...[39m[0m
+14-[  33% ] [90m[1mfirst_scan_filesystem[22m | Verifying GDExtensions...[39m[0m
+15-[  50% ] [90m[1mfirst_scan_filesystem[22m | Creating autoload scripts...[39m[0m
+16:SCRIPT ERROR: Parse Error: Too many arguments for "new()" call. Expected at most 1 but received 2.
+17-          at: GDScript::reload (res://src/monster_ai.gd:102)
+18:SCRIPT ERROR: Parse Error: Invalid argument for "new()" function: argument 1 should be "Vector2i" but is "Monster".
+19-          at: GDScript::reload (res://src/monster_ai.gd:102)
+20:SCRIPT ERROR: Parse Error: Too many arguments for "new()" call. Expected at most 1 but received 2.
+21-          at: GDScript::reload (res://src/monster_ai.gd:144)
+22:SCRIPT ERROR: Parse Error: Invalid argument for "new()" function: argument 1 should be "Vector2i" but is "Monster".
+23-          at: GDScript::reload (res://src/monster_ai.gd:144)
+24:SCRIPT ERROR: Parse Error: Too many arguments for "new()" call. Expected at most 1 but received 2.
+25-          at: GDScript::reload (res://src/monster_ai.gd:169)
+26:SCRIPT ERROR: Parse Error: Invalid argument for "new()" function: argument 1 should be "Vector2i" but is "Monster".
+27-          at: GDScript::reload (res://src/monster_ai.gd:169)
+28-res://assets/fonts/pixel_operator/PixelOperatorHB.ttf: Pixel font detected, disabling subpixel positioning.
+29-res://assets/fonts/pixel_operator/PixelOperator-Bold.ttf: Pixel font detected, disabling subpixel positioning.
+30:SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+31-          at: GDScript::reload (res://src/monster.gd:0)
+32:SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+33-          at: GDScript::reload (res://src/map_cell.gd:0)
+34:SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+35-          at: GDScript::reload (res://src/map.gd:0)
+36:SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+37-          at: GDScript::reload (res://src/nightreign/expedition/night_run.gd:0)
+38:ERROR: Failed to load script "res://src/nightreign/expedition/night_run.gd" with error "Parse error".
+39-   at: load (modules/gdscript/gdscript.cpp:2907)
+40-[  66% ] [90m[1mfirst_scan_filesystem[22m | Initializing plugins...[39m[0m
+41-[  83% ] [90m[1mfirst_scan_filesystem[22m | Starting file scan...[39m[0m
