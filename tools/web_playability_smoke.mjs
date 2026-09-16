@@ -5,18 +5,52 @@ for (const [name, browserType] of [['chromium', chromium], ['firefox', firefox]]
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const fatals = [];
   const failed = [];
+  const consoleLines = [];
+
   page.on('console', m => {
     const t = m.text();
+    consoleLines.push(`[${m.type()}] ${t}`);
+    console.log(`${name} CONSOLE ${m.type()}: ${t}`);
     if (m.type() === 'error' && /SCRIPT ERROR|Parse Error|Compile Error|RuntimeError|WebAssembly.*failed|abort\(/i.test(t)) fatals.push(t);
   });
-  page.on('pageerror', e => fatals.push(`PAGEERROR: ${e.message}`));
-  page.on('requestfailed', r => failed.push(`${r.url()} :: ${r.failure()?.errorText ?? 'unknown'}`));
+  page.on('pageerror', e => {
+    fatals.push(`PAGEERROR: ${e.message}`);
+    console.log(`${name} PAGEERROR: ${e.message}`);
+  });
+  page.on('requestfailed', r => {
+    const line = `${r.url()} :: ${r.failure()?.errorText ?? 'unknown'}`;
+    failed.push(line);
+    console.log(`${name} REQUESTFAILED: ${line}`);
+  });
 
   await page.goto('http://127.0.0.1:4173/game/?qa=1', { waitUntil: 'domcontentloaded', timeout: 30000 });
   const canvas = page.locator('canvas');
   await canvas.waitFor({ state: 'visible', timeout: 30000 });
   await canvas.click({ position: { x: 100, y: 100 } });
-  await page.waitForFunction(() => window.__nightreignQA?.ready === true, null, { timeout: 30000 });
+
+  try {
+    await page.waitForFunction(() => window.__nightreignQA?.ready === true, null, { timeout: 15000 });
+  } catch (error) {
+    const diagnostic = await page.evaluate(() => ({
+      url: location.href,
+      title: document.title,
+      active: document.activeElement ? `${document.activeElement.tagName}#${document.activeElement.id || ''}` : null,
+      menuQA: window.__nightreignMenuQA ?? null,
+      gameQA: window.__nightreignQA ?? null,
+      canvas: (() => {
+        const c = document.querySelector('canvas');
+        if (!c) return null;
+        const r = c.getBoundingClientRect();
+        return { width: r.width, height: r.height, internalWidth: c.width, internalHeight: c.height };
+      })(),
+      text: document.body?.innerText?.slice(0, 1000) ?? '',
+    }));
+    console.log(name, 'QA_READY_TIMEOUT_DIAGNOSTIC', JSON.stringify(diagnostic));
+    console.log(name, 'CONSOLE_TAIL', JSON.stringify(consoleLines.slice(-80)));
+    await page.screenshot({ path: `artifacts/web-qa/${name}-qa-ready-timeout.png`, fullPage: true });
+    await browser.close();
+    throw error;
+  }
 
   const box = await canvas.boundingBox();
   const initial = await page.evaluate(() => ({ ...window.__nightreignQA }));
