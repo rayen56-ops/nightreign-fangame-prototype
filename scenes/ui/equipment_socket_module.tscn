@@ -9,7 +9,7 @@
 atlas = ExtResource("2_sr8te")
 region = Rect2(0, 0, 16, 16)
 script = ExtResource("3_gctua")
-sprite_name = &"helmet_008"
+sprite_name = &"armor-0"
 
 [node name="EquipmentSocketModule" type="PanelContainer"]
 anchors_preset = 15
