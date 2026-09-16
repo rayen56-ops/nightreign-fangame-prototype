@@ -1,0 +1,1 @@
+Supplied Wylder/Revenant art is being integrated on t1-character-art-pass-v2.
