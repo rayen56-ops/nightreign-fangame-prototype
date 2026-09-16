@@ -1,5 +1,5 @@
 {
-  "revision": "T0.1-core-20f",
+  "revision": "T1.0-combat-language",
   "balance_note": "Turn-based adaptation values, not original-game numeric data.",
   "grades": {
     "E": 1,
@@ -20,16 +20,7 @@
   "characters": {
     "wylder": {
       "hp": 72,
-      "grades": {
-        "VIG": "A",
-        "MND": "C",
-        "END": "B",
-        "STR": "A",
-        "DEX": "B",
-        "INT": "D",
-        "FAI": "D",
-        "ARC": "C"
-      },
+      "grades": {"VIG": "A", "MND": "C", "END": "B", "STR": "A", "DEX": "B", "INT": "D", "FAI": "D", "ARC": "C"},
       "skill": "Claw Shot",
       "ultimate": "Onslaught Stake",
       "cooldown": 5,
@@ -37,215 +28,83 @@
     },
     "revenant": {
       "hp": 48,
-      "grades": {
-        "VIG": "D",
-        "MND": "A",
-        "END": "D",
-        "STR": "E",
-        "DEX": "C",
-        "INT": "B",
-        "FAI": "S",
-        "ARC": "B"
-      },
+      "grades": {"VIG": "D", "MND": "A", "END": "D", "STR": "E", "DEX": "C", "INT": "B", "FAI": "S", "ARC": "B"},
       "skill": "Summon Spirit",
       "ultimate": "Immortal March",
       "cooldown": 8,
       "starting_weapon": "finger_seal"
     }
   },
+  "weapon_archetypes": {
+    "straight_sword": {"reach": 1, "pattern": "single", "poise": 2, "status": {}},
+    "greatsword": {"reach": 1, "pattern": "sweep", "poise": 4, "status": {}},
+    "katana": {"reach": 1, "pattern": "single", "poise": 2, "status": {"bleed": 34}},
+    "dagger": {"reach": 1, "pattern": "single", "poise": 1, "status": {}},
+    "staff": {"reach": 4, "pattern": "line", "poise": 0, "status": {}},
+    "seal": {"reach": 3, "pattern": "line", "poise": 0, "status": {}},
+    "spear": {"reach": 2, "pattern": "line", "poise": 2, "status": {}}
+  },
+  "status_thresholds": {"bleed": 100, "frost": 100, "poison": 100},
   "weapons": {
     "longsword": {
-      "name": "Longsword",
-      "base": 5,
-      "scaling": {
-        "STR": "C",
-        "DEX": "C"
-      },
-      "sprite": "weapon-0",
-      "affinity": "physical"
+      "name": "Longsword", "base": 5, "archetype": "straight_sword",
+      "scaling": {"STR": "C", "DEX": "C"}, "sprite": "weapon-0", "affinity": "physical"
     },
     "greatsword": {
-      "name": "Lordsworn's Greatsword",
-      "base": 6,
-      "scaling": {
-        "STR": "A",
-        "DEX": "D"
-      },
-      "sprite": "weapon-0",
-      "affinity": "physical"
+      "name": "Lordsworn's Greatsword", "base": 6, "archetype": "greatsword",
+      "scaling": {"STR": "A", "DEX": "D"}, "sprite": "weapon-0", "affinity": "physical"
     },
     "uchigatana": {
-      "name": "Uchigatana",
-      "base": 5,
-      "scaling": {
-        "STR": "D",
-        "DEX": "A"
-      },
-      "sprite": "weapon-0",
-      "affinity": "physical"
+      "name": "Uchigatana", "base": 5, "archetype": "katana",
+      "scaling": {"STR": "D", "DEX": "A"}, "sprite": "weapon-0", "affinity": "physical"
     },
     "misericorde": {
-      "name": "Misericorde",
-      "base": 4,
-      "scaling": {
-        "DEX": "S"
-      },
-      "sprite": "weapon-0",
-      "affinity": "physical"
+      "name": "Misericorde", "base": 4, "archetype": "dagger",
+      "scaling": {"DEX": "S"}, "sprite": "weapon-0", "affinity": "physical"
     },
     "glintstone_staff": {
-      "name": "Glintstone Staff",
-      "base": 5,
-      "scaling": {
-        "INT": "A"
-      },
-      "sprite": "weapon-0",
-      "affinity": "magic"
+      "name": "Glintstone Staff", "base": 5, "archetype": "staff",
+      "scaling": {"INT": "A"}, "sprite": "weapon-0", "affinity": "magic"
     },
     "finger_seal": {
-      "name": "Finger Seal",
-      "base": 4,
-      "scaling": {
-        "FAI": "A"
-      },
-      "sprite": "weapon-0",
-      "affinity": "holy"
+      "name": "Finger Seal", "base": 4, "archetype": "seal",
+      "scaling": {"FAI": "A"}, "sprite": "weapon-0", "affinity": "holy"
     },
     "sacred_blade": {
-      "name": "Sacred Blade Longsword",
-      "base": 5,
-      "scaling": {
-        "STR": "D",
-        "FAI": "B"
-      },
-      "sprite": "weapon-0",
-      "affinity": "holy"
+      "name": "Sacred Blade Longsword", "base": 5, "archetype": "straight_sword",
+      "scaling": {"STR": "D", "FAI": "B"}, "sprite": "weapon-0", "affinity": "holy"
     }
   },
   "enemies": {
-    "soldier": {
-      "name": "Godrick Soldier",
-      "template": "knight",
-      "hp": 20,
-      "damage": 5,
-      "runes": 12
-    },
-    "wolf": {
-      "name": "Lone Wolf",
-      "template": "coyote",
-      "hp": 14,
-      "damage": 4,
-      "runes": 9
-    },
-    "skeleton": {
-      "name": "Skeletal Militiaman",
-      "template": "skeleton",
-      "hp": 22,
-      "damage": 5,
-      "runes": 12
-    },
-    "gladius": {
-      "name": "Gladius, Beast of Night",
-      "template": "coyote",
-      "hp": 150,
-      "damage": 12,
-      "runes": 150,
-      "scales_with_floor": false
-    },
-    "gladius_echo": {
-      "name": "Gladius Hunting Echo",
-      "template": "coyote",
-      "hp": 28,
-      "damage": 8,
-      "runes": 0,
-      "scales_with_floor": false
-    }
+    "soldier": {"name": "Godrick Soldier", "template": "knight", "hp": 20, "damage": 5, "runes": 12},
+    "wolf": {"name": "Lone Wolf", "template": "coyote", "hp": 14, "damage": 4, "runes": 9},
+    "skeleton": {"name": "Skeletal Militiaman", "template": "skeleton", "hp": 22, "damage": 5, "runes": 12},
+    "gladius": {"name": "Gladius, Beast of Night", "template": "coyote", "hp": 150, "damage": 12, "runes": 150, "scales_with_floor": false},
+    "gladius_echo": {"name": "Gladius Hunting Echo", "template": "coyote", "hp": 28, "damage": 8, "runes": 0, "scales_with_floor": false}
   },
   "night_tide": {
-    "thresholds": [
-      72,
-      104
-    ],
-    "minimum_thresholds": [
-      50,
-      72
-    ],
-    "threshold_reduction_per_floor": [
-      1,
-      1
-    ],
-    "safe_radius": [
-      8,
-      5
-    ],
-    "damage": [
-      5,
-      9
-    ],
+    "thresholds": [72, 104],
+    "minimum_thresholds": [50, 72],
+    "threshold_reduction_per_floor": [1, 1],
+    "safe_radius": [8, 5],
+    "damage": [5, 9],
     "note": "Turn-based adaptation. Floors 1-19 only; later floors reach encroachment sooner."
   },
   "floor_progression": {
     "total_floors": 20,
     "boss_floor": 20,
-    "milestones": [
-      5,
-      10,
-      15
-    ],
-    "enemy_count": {
-      "base": 5,
-      "per_two_floors": 1,
-      "milestone_bonus": 1,
-      "max": 14
-    },
-    "hp_multiplier": {
-      "base": 1.0,
-      "per_floor": 0.03
-    },
-    "damage_multiplier": {
-      "base": 1.0,
-      "per_floor": 0.015
-    },
-    "rune_multiplier": {
-      "base": 1.0,
-      "per_floor": 0.04
-    },
-    "elite": {
-      "base_chance": 0.0,
-      "per_floor": 0.006,
-      "milestone_bonus": 0.02,
-      "max_chance": 0.18,
-      "hp_multiplier": 1.4,
-      "damage_multiplier": 1.2,
-      "rune_multiplier": 2.0
-    },
-    "weapon_drops": {
-      "base": 1,
-      "per_seven_floors": 1,
-      "max": 3
-    },
-    "warming_stones": {
-      "base": 1,
-      "milestone_bonus": 1,
-      "max": 2
-    },
+    "milestones": [5, 10, 15],
+    "enemy_count": {"base": 5, "per_two_floors": 1, "milestone_bonus": 1, "max": 14},
+    "hp_multiplier": {"base": 1.0, "per_floor": 0.03},
+    "damage_multiplier": {"base": 1.0, "per_floor": 0.015},
+    "rune_multiplier": {"base": 1.0, "per_floor": 0.04},
+    "elite": {"base_chance": 0.0, "per_floor": 0.006, "milestone_bonus": 0.02, "max_chance": 0.18, "hp_multiplier": 1.4, "damage_multiplier": 1.2, "rune_multiplier": 2.0},
+    "weapon_drops": {"base": 1, "per_seven_floors": 1, "max": 3},
+    "warming_stones": {"base": 1, "milestone_bonus": 1, "max": 2},
     "enemy_pools": [
-      {
-        "from_floor": 1,
-        "ids": [
-          "wolf",
-          "soldier"
-        ]
-      },
-      {
-        "from_floor": 4,
-        "ids": [
-          "wolf",
-          "soldier",
-          "skeleton"
-        ]
-      }
+      {"from_floor": 1, "ids": ["wolf", "soldier"]},
+      {"from_floor": 4, "ids": ["wolf", "soldier", "skeleton"]}
     ],
-    "note": "T0 architecture curve. Enemy variety is intentionally placeholder until T1 content database."
+    "note": "T0 architecture curve retained; T1 combat language now defines weapon reach, pattern, poise and status contracts."
   }
 }
