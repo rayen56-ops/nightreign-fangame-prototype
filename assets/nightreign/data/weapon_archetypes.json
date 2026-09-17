@@ -1,6 +1,6 @@
 {
-  "revision": "M1.3-catalyst-casts",
-  "note": "Turn-based adaptation metadata. Affinity remains a Nightreign-layer concept; damage_type maps only to the existing core Damage enum. Greatswords sweep, daggers burst, and staff/seal catalysts expose explicit ranged casts while retaining a weak adjacent fallback through the melee slot.",
+  "revision": "M1.4-thrusting-sword",
+  "note": "Turn-based adaptation metadata. Affinity remains a Nightreign-layer concept; damage_type maps only to the existing core Damage enum. Greatswords sweep, daggers burst, thrusting swords can attack through one empty tile, and staff/seal catalysts expose explicit ranged casts.",
   "archetypes": {
     "straight_sword": {
       "label": "Straight Sword",
@@ -23,6 +23,14 @@
       "skill_type": "SWORD",
       "damage_type": "SLASH",
       "attack_pattern": "single"
+    },
+    "thrusting_sword": {
+      "label": "Thrusting Sword",
+      "item_type": "SWORD",
+      "skill_type": "SWORD",
+      "damage_type": "PIERCE",
+      "attack_pattern": "thrust",
+      "reach": 2
     },
     "dagger": {
       "label": "Dagger",
@@ -64,6 +72,7 @@
     "longsword": "straight_sword",
     "greatsword": "greatsword",
     "uchigatana": "katana",
+    "rapier": "thrusting_sword",
     "misericorde": "dagger",
     "glintstone_staff": "staff",
     "finger_seal": "seal",
