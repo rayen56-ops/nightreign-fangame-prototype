@@ -1,4 +1,5 @@
 name: M2 Hit Feedback QA
+# Mainline verification gate for readable deterministic hit feedback.
 
 on:
   push:
