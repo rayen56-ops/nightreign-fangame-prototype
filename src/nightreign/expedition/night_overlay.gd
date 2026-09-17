@@ -2,6 +2,8 @@ extends Node2D
 ## Gameplay markers use actual visible map state; red cells are attack snapshots.
 var boss_bar: Label
 var combat_bar: Label
+var attack_preview: Dictionary = {}
+var attack_preview_target: Vector2i = Utils.INVALID_POS
 
 func _ready() -> void:
 	z_index = -1
@@ -49,7 +51,102 @@ func combat_status_text() -> String:
 		NightRun.flasks,
 	]
 
+func _night_weapon_context() -> Dictionary:
+	if World.player == null:
+		return {}
+	var item := World.player.equipment.get_equipped_item(Equipment.Slot.MELEE)
+	if item == null or not item.has_meta("night_weapon"):
+		return {}
+	var profile: Dictionary = NightRun.weapon_archetype(String(item.get_meta("night_weapon")))
+	if profile.is_empty():
+		return {}
+	return {
+		"item": item,
+		"profile": profile,
+		"affinity": StringName(String(item.get_meta("night_affinity", "physical"))),
+	}
+
+func _thrust_path_clear(map: Map, preview: Dictionary) -> bool:
+	var cells: Array = preview.get("cells", [])
+	if cells.size() <= 1:
+		return true
+	for i in range(cells.size() - 1):
+		var pos: Vector2i = cells[i]
+		if not map.is_in_bounds(pos):
+			return false
+		if not map.get_cell(pos).is_walkable() or map.get_obstacle(pos) != null:
+			return false
+		if map.get_monster(pos) != null:
+			return false
+	return true
+
+func _clip_cast_cells(map: Map, cells: Array) -> Array[Vector2i]:
+	var clipped: Array[Vector2i] = []
+	for value in cells:
+		var pos: Vector2i = value
+		if not map.is_in_bounds(pos):
+			break
+		clipped.append(pos)
+		if map.is_opaque(pos) or map.get_monster(pos) != null:
+			break
+	return clipped
+
+func _build_attack_preview() -> Dictionary:
+	var map := World.current_map
+	if map == null or World.player == null or World.game_over or Modals.has_visible_modals():
+		return {}
+	var game := get_parent()
+	if game != null:
+		if not bool(game.get("waiting_for_player_input")):
+			return {}
+		if game.get("_throw_selection") != null:
+			return {}
+	var context := _night_weapon_context()
+	if context.is_empty():
+		return {}
+	var mouse_pos := get_local_mouse_position()
+	var tile_pos := Vector2i(mouse_pos / Constants.TILE_SIZE)
+	if not map.is_in_bounds(tile_pos) or not map.is_visible(tile_pos):
+		return {}
+	var terrain := map.get_terrain(tile_pos)
+	if terrain.type == Terrain.Type.EMPTY:
+		return {}
+	var source := map.find_monster_position(World.player)
+	if source == Utils.INVALID_POS or source == tile_pos:
+		return {}
+	var profile: Dictionary = context.profile
+	var preview := NightAttackPreview.build(profile, source, tile_pos, context.affinity)
+	if profile.has("cast"):
+		preview["cells"] = _clip_cast_cells(map, preview.get("cells", []))
+		preview["target"] = tile_pos
+		return preview
+	var target := map.get_monster(tile_pos)
+	if target == null or target == World.player or not target.is_hostile_to(World.player):
+		return {}
+	if not bool(preview.get("target_in_range", false)):
+		return {}
+	if String(preview.get("pattern", "")) == "thrust" and not _thrust_path_clear(map, preview):
+		return {}
+	preview["target"] = tile_pos
+	return preview
+
+func _suppress_legacy_path_preview() -> void:
+	if attack_preview.is_empty():
+		return
+	var game := get_parent()
+	if game == null:
+		return
+	var renderer := game.get("map_renderer") as MapRenderer
+	if renderer == null or renderer.highlight_layer == null:
+		return
+	for child in renderer.highlight_layer.get_children():
+		child.visible = false
+		child.queue_free()
+
 func _process(_delta: float) -> void:
+	attack_preview = _build_attack_preview()
+	attack_preview_target = attack_preview.get("target", Utils.INVALID_POS)
+	_suppress_legacy_path_preview()
 	queue_redraw()
 	var map := World.current_map
 	if map == null:
@@ -73,6 +170,23 @@ func _process(_delta: float) -> void:
 	if NightRun.won:
 		boss_bar.text = "NIGHTLORD FELLED"
 
+func _draw_attack_preview(map: Map) -> void:
+	if attack_preview.is_empty():
+		return
+	var cells: Array = attack_preview.get("cells", [])
+	var affinity: StringName = attack_preview.get("affinity", &"physical")
+	var fill := NightAttackPreview.preview_color(affinity)
+	var outline := Color(fill.r, fill.g, fill.b, 0.92)
+	for value in cells:
+		var cell: Vector2i = value
+		if not map.is_in_bounds(cell) or not map.visible_cells[cell.x][cell.y]:
+			continue
+		var rect := Rect2(Vector2(cell * Constants.TILE_SIZE), Vector2.ONE * Constants.TILE_SIZE)
+		draw_rect(rect.grow(-1), fill)
+		draw_rect(rect.grow(-1), outline, false, 1)
+		if cell == attack_preview_target and bool(attack_preview.get("target_in_range", false)):
+			draw_rect(rect.grow(-4), Color(fill.r, fill.g, fill.b, 0.55))
+
 func _draw() -> void:
 	var map := World.current_map
 	if map == null:
@@ -90,6 +204,7 @@ func _draw() -> void:
 	for field in NightRun.healing_fields:
 		if field.map == map.id and map.visible_cells[field.position.x][field.position.y]:
 			draw_arc(Vector2(field.position * 16) + Vector2(8,8), 20, 0, TAU, 24, Color("d6b76b"), 1)
+	_draw_attack_preview(map)
 	for cells: Array in NightRun.telegraphs.values():
 		for cell: Vector2i in cells:
 			if map.is_in_bounds(cell) and map.visible_cells[cell.x][cell.y] and map.get_cell(cell).is_walkable():
