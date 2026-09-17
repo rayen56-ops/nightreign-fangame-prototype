@@ -7,6 +7,7 @@ on:
       - src/nightreign/expedition/night_overlay.gd
       - src/nightreign/expedition/night_run.gd
       - src/nightreign/config/character_catalog.gd
+      - src/nightreign/ui/night_ui_text.gd
       - src/item.gd
       - tests/night_overlay.gd
       - tests/night_overlay.tscn
@@ -20,6 +21,7 @@ on:
       - src/nightreign/expedition/night_overlay.gd
       - src/nightreign/expedition/night_run.gd
       - src/nightreign/config/character_catalog.gd
+      - src/nightreign/ui/night_ui_text.gd
       - src/item.gd
       - tests/night_overlay.gd
       - tests/night_overlay.tscn
@@ -67,8 +69,11 @@ jobs:
           import json
           report = json.load(open('docs/M2_HUD_QA.json', encoding='utf-8'))
           assert report.get('failures') == [], report.get('failures')
-          assert report.get('checks', 0) >= 17, report.get('checks')
-          print('M2 HUD QA:', report['checks'], 'checks passed')
+          assert report.get('checks', 0) >= 55, report.get('checks')
+          assert report.get('locale') == 'zh-TW', report.get('locale')
+          required = {'追蹤者', '復仇者', '技藝', '絕活', '黑夜王', '黑夜雨'}
+          assert required.issubset(set(report.get('official_terms', []))), report.get('official_terms')
+          print('M2 HUD QA:', report['checks'], 'Traditional Chinese checks passed')
           PY
 
       - name: Run expedition regression
