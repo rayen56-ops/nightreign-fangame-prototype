@@ -9,6 +9,8 @@ on:
       - src/actions/melee_action.gd
       - src/actions/player_fire_action.gd
       - src/actions/night_spell_action.gd
+      - src/visual_effects.gd
+      - scenes/actor/actor.gd
       - src/item.gd
       - assets/nightreign/data/expedition.json
       - assets/nightreign/data/weapon_archetypes.json
@@ -19,6 +21,8 @@ on:
       - assets/generated/item_sprites.tres
       - tests/weapon_archetypes.gd
       - tests/weapon_archetypes.tscn
+      - tests/weapon_visual_profiles.gd
+      - tests/weapon_visual_profiles.tscn
       - tests/expedition.gd
       - tests/expedition.tscn
       - .github/workflows/m1-weapon-qa.yml
@@ -30,6 +34,8 @@ on:
       - src/actions/melee_action.gd
       - src/actions/player_fire_action.gd
       - src/actions/night_spell_action.gd
+      - src/visual_effects.gd
+      - scenes/actor/actor.gd
       - src/item.gd
       - assets/nightreign/data/expedition.json
       - assets/nightreign/data/weapon_archetypes.json
@@ -40,6 +46,8 @@ on:
       - assets/generated/item_sprites.tres
       - tests/weapon_archetypes.gd
       - tests/weapon_archetypes.tscn
+      - tests/weapon_visual_profiles.gd
+      - tests/weapon_visual_profiles.tscn
       - tests/expedition.gd
       - tests/expedition.tscn
       - .github/workflows/m1-weapon-qa.yml
@@ -88,6 +96,24 @@ jobs:
           print('M1 weapon QA:', report['checks'], 'checks passed')
           PY
 
+      - name: Run weapon visual profile contract
+        shell: bash
+        run: |
+          set -o pipefail
+          rm -f docs/WEAPON_VISUAL_QA.json
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . res://tests/weapon_visual_profiles.tscn --quit-after 1800 2>&1 | tee /tmp/m1-weapon-visual.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/m1-weapon-visual.log
+          test -s docs/WEAPON_VISUAL_QA.json
+          python3 - <<'PY'
+          import json
+          report = json.load(open('docs/WEAPON_VISUAL_QA.json', encoding='utf-8'))
+          assert report.get('failures') == [], report.get('failures')
+          assert report.get('weapon_count') == 8, report.get('weapon_count')
+          assert report.get('checks', 0) >= 26, report.get('checks')
+          assert len(report.get('visual_profiles', [])) == 7, report.get('visual_profiles')
+          print('M1 weapon visual QA:', report['checks'], 'checks passed')
+          PY
+
       - name: Run full expedition regression
         shell: bash
         run: |
@@ -110,8 +136,10 @@ jobs:
           name: m1-weapon-qa
           path: |
             docs/WEAPON_QA.json
+            docs/WEAPON_VISUAL_QA.json
             docs/M1_QA.json
             /tmp/m1-weapon-import.log
             /tmp/m1-weapon.log
+            /tmp/m1-weapon-visual.log
             /tmp/m1-expedition.log
           if-no-files-found: ignore
