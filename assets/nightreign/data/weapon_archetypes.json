@@ -1,6 +1,6 @@
 {
-  "revision": "M1.1-runtime-wired",
-  "note": "Turn-based adaptation metadata. Affinity remains a Nightreign-layer concept; damage_type maps only to the existing core Damage enum.",
+  "revision": "M1.1-runtime-wired-clone-safe",
+  "note": "Turn-based adaptation metadata. Affinity remains a Nightreign-layer concept; damage_type maps only to the existing core Damage enum. Item clones preserve runtime weapon identity metadata.",
   "archetypes": {
     "straight_sword": {
       "label": "Straight Sword",
