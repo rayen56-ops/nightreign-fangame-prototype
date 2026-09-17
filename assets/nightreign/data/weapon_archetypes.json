@@ -1,42 +1,51 @@
 {
-  "revision": "M1.1-runtime-wired-clone-safe",
-  "note": "Turn-based adaptation metadata. Affinity remains a Nightreign-layer concept; damage_type maps only to the existing core Damage enum. Item clones preserve runtime weapon identity metadata.",
+  "revision": "M1.2-melee-patterns",
+  "note": "Turn-based adaptation metadata. Affinity remains a Nightreign-layer concept; damage_type maps only to the existing core Damage enum. Melee archetypes now declare their runtime attack pattern. Staff and seal keep a temporary single-tile fallback until the ranged spellcasting pass.",
   "archetypes": {
     "straight_sword": {
       "label": "Straight Sword",
       "item_type": "SWORD",
       "skill_type": "SWORD",
-      "damage_type": "SLASH"
+      "damage_type": "SLASH",
+      "attack_pattern": "single"
     },
     "greatsword": {
       "label": "Greatsword",
       "item_type": "SWORD",
       "skill_type": "SWORD",
-      "damage_type": "SLASH"
+      "damage_type": "SLASH",
+      "attack_pattern": "sweep",
+      "side_multiplier": 0.75
     },
     "katana": {
       "label": "Katana",
       "item_type": "SWORD",
       "skill_type": "SWORD",
-      "damage_type": "SLASH"
+      "damage_type": "SLASH",
+      "attack_pattern": "single"
     },
     "dagger": {
       "label": "Dagger",
       "item_type": "KNIFE",
       "skill_type": "KNIFE",
-      "damage_type": "PIERCE"
+      "damage_type": "PIERCE",
+      "attack_pattern": "burst",
+      "hits": 2,
+      "hit_multiplier": 0.65
     },
     "staff": {
       "label": "Glintstone Staff",
       "item_type": "WAND",
       "skill_type": "UTILITY",
-      "damage_type": "BLUNT"
+      "damage_type": "BLUNT",
+      "attack_pattern": "single"
     },
     "seal": {
       "label": "Sacred Seal",
       "item_type": "WAND",
       "skill_type": "UTILITY",
-      "damage_type": "BLUNT"
+      "damage_type": "BLUNT",
+      "attack_pattern": "single"
     }
   },
   "weapons": {
