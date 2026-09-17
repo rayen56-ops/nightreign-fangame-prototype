@@ -139,6 +139,10 @@ func weapon_archetype(id: String) -> Dictionary:
 	assert(weapon_profiles.archetypes.has(archetype_id), "Unknown weapon archetype: %s" % archetype_id)
 	return weapon_profiles.archetypes[archetype_id]
 
+func weapon_sprite_name(id: String) -> StringName:
+	assert(weapon_profiles.sprites.has(id), "Missing weapon sprite mapping: %s" % id)
+	return StringName(String(weapon_profiles.sprites[id]))
+
 func _item_type_from_name(type_name: String) -> int:
 	match type_name:
 		"SWORD": return Item.Type.SWORD
@@ -176,8 +180,7 @@ func make_weapon(id: String) -> Item:
 	item.skill_type = _skill_type_from_name(String(archetype.skill_type))
 	item.damage = [1, int(entry.base)]
 	item.damage_types = [_damage_type_from_name(String(archetype.damage_type))]
-	# Reuse a verified upstream sword icon until the item-art pass replaces icons by archetype.
-	item.sprite_name = ItemFactory.create_item(&"longsword").sprite_name
+	item.sprite_name = weapon_sprite_name(id)
 	item._mass = 0.0
 	return item
 

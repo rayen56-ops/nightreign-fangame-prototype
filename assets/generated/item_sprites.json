@@ -136,6 +136,38 @@
     "debug": [
       48,
       80
+    ],
+    "night-longsword": [
+      64,
+      80
+    ],
+    "night-greatsword": [
+      80,
+      80
+    ],
+    "night-katana": [
+      96,
+      80
+    ],
+    "night-rapier": [
+      112,
+      80
+    ],
+    "night-dagger": [
+      128,
+      80
+    ],
+    "night-staff": [
+      144,
+      80
+    ],
+    "night-seal": [
+      160,
+      80
+    ],
+    "night-sacred-blade": [
+      176,
+      80
     ]
   }
 }

@@ -34,17 +34,18 @@ func _set_hp(monster: Monster, amount: int) -> void:
 
 func run() -> void:
 	var cases := {
-		"longsword": {"archetype": "straight_sword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "single", "casts": false},
-		"greatsword": {"archetype": "greatsword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "sweep", "casts": false},
-		"uchigatana": {"archetype": "katana", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "single", "casts": false},
-		"rapier": {"archetype": "thrusting_sword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.PIERCE, "pattern": "thrust", "casts": false},
-		"misericorde": {"archetype": "dagger", "item": Item.Type.KNIFE, "skill": Skills.Type.KNIFE, "damage": Damage.Type.PIERCE, "pattern": "burst", "casts": false},
-		"glintstone_staff": {"archetype": "staff", "item": Item.Type.WAND, "skill": Skills.Type.UTILITY, "damage": Damage.Type.BLUNT, "pattern": "single", "casts": true},
-		"finger_seal": {"archetype": "seal", "item": Item.Type.WAND, "skill": Skills.Type.UTILITY, "damage": Damage.Type.BLUNT, "pattern": "single", "casts": true},
-		"sacred_blade": {"archetype": "straight_sword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "single", "casts": false}
+		"longsword": {"archetype": "straight_sword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "single", "casts": false, "sprite": "night-longsword"},
+		"greatsword": {"archetype": "greatsword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "sweep", "casts": false, "sprite": "night-greatsword"},
+		"uchigatana": {"archetype": "katana", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "single", "casts": false, "sprite": "night-katana"},
+		"rapier": {"archetype": "thrusting_sword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.PIERCE, "pattern": "thrust", "casts": false, "sprite": "night-rapier"},
+		"misericorde": {"archetype": "dagger", "item": Item.Type.KNIFE, "skill": Skills.Type.KNIFE, "damage": Damage.Type.PIERCE, "pattern": "burst", "casts": false, "sprite": "night-dagger"},
+		"glintstone_staff": {"archetype": "staff", "item": Item.Type.WAND, "skill": Skills.Type.UTILITY, "damage": Damage.Type.BLUNT, "pattern": "single", "casts": true, "sprite": "night-staff"},
+		"finger_seal": {"archetype": "seal", "item": Item.Type.WAND, "skill": Skills.Type.UTILITY, "damage": Damage.Type.BLUNT, "pattern": "single", "casts": true, "sprite": "night-seal"},
+		"sacred_blade": {"archetype": "straight_sword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "single", "casts": false, "sprite": "night-sacred-blade"}
 	}
 
 	var map := _sandbox()
+	var seen_sprite_coords: Dictionary = {}
 	for weapon_id: String in cases:
 		var expected: Dictionary = cases[weapon_id]
 		var weapon := NightRun.make_weapon(weapon_id)
@@ -56,12 +57,19 @@ func run() -> void:
 		check(weapon.damage_types.size() == 1 and weapon.damage_types[0] == expected.damage, "damage profile " + weapon_id)
 		check(String(profile.get("attack_pattern", "")) == expected.pattern, "attack pattern " + weapon_id)
 		check(profile.has("cast") == expected.casts, "cast capability " + weapon_id)
+		check(weapon.sprite_name == StringName(expected.sprite), "dedicated sprite identity " + weapon_id)
+		var sprite_coords := ItemTiles.get_coords(weapon.sprite_name)
+		check(sprite_coords != Utils.INVALID_POS, "sprite exists in shared ItemTiles atlas " + weapon_id)
+		check(not seen_sprite_coords.has(sprite_coords), "weapon sprite coordinate is unique " + weapon_id)
+		seen_sprite_coords[sprite_coords] = weapon_id
 		check(weapon.is_weapon(), "recognized as weapon " + weapon_id)
 		World.player.add_item(weapon)
 		check(PlayerEquipAction.new(weapon, Equipment.Slot.MELEE).apply(map).success, "equips in melee slot " + weapon_id)
 		var clone := ItemFactory.clone(weapon)
 		check(clone.get_meta("night_weapon", "") == weapon_id and clone.get_meta("night_archetype", "") == expected.archetype, "clone preserves weapon metadata " + weapon_id)
 		check(NightRun.weapon_description(weapon).contains("Archetype:"), "description exposes archetype " + weapon_id)
+
+	check(seen_sprite_coords.size() == cases.size(), "all Nightreign weapons have unique atlas cells")
 
 	var greatsword := NightRun.make_weapon("greatsword")
 	check(NightRun.weapon_damage(greatsword, "wylder") > NightRun.weapon_damage(greatsword, "revenant"), "greatsword STR scaling favors Wylder")

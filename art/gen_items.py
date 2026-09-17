@@ -16,6 +16,7 @@ import re
 from collections import defaultdict
 from PIL import ImageDraw, ImageFont
 import csv
+from nightreign_weapon_icons import materialize_weapon_icons
 
 # Configuration
 TILE_SIZE = 16
@@ -255,6 +256,9 @@ def create_atlas(sprite_files):
     json_path = OUTPUT_DIR / "item_sprites.json"
     with open(json_path, 'w') as f:
         json.dump(json_data, f, indent=2)
+
+    # Nightreign weapon visuals live in the same authoritative ItemTiles atlas.
+    materialize_weapon_icons(atlas_path, json_path, OUTPUT_DIR / "item_sprites.tres")
 
     print(f"Created atlas at {atlas_path}")
     print(f"Created coordinate data at {json_path}")
