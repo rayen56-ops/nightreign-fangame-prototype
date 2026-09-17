@@ -12,6 +12,11 @@ on:
       - src/item.gd
       - assets/nightreign/data/expedition.json
       - assets/nightreign/data/weapon_archetypes.json
+      - art/nightreign_weapon_icons.py
+      - art/gen_items.py
+      - assets/generated/item_sprites.json
+      - assets/generated/item_sprites.png
+      - assets/generated/item_sprites.tres
       - tests/weapon_archetypes.gd
       - tests/weapon_archetypes.tscn
       - tests/expedition.gd
@@ -28,6 +33,11 @@ on:
       - src/item.gd
       - assets/nightreign/data/expedition.json
       - assets/nightreign/data/weapon_archetypes.json
+      - art/nightreign_weapon_icons.py
+      - art/gen_items.py
+      - assets/generated/item_sprites.json
+      - assets/generated/item_sprites.png
+      - assets/generated/item_sprites.tres
       - tests/weapon_archetypes.gd
       - tests/weapon_archetypes.tscn
       - tests/expedition.gd
@@ -74,7 +84,7 @@ jobs:
           report = json.load(open('docs/WEAPON_QA.json', encoding='utf-8'))
           assert report.get('failures') == [], report.get('failures')
           assert report.get('weapon_count') == 8, report.get('weapon_count')
-          assert report.get('checks', 0) >= 95, report.get('checks')
+          assert report.get('checks', 0) >= 145, report.get('checks')
           print('M1 weapon QA:', report['checks'], 'checks passed')
           PY
 
