@@ -37,6 +37,7 @@ func run() -> void:
 		"longsword": {"archetype": "straight_sword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "single", "casts": false},
 		"greatsword": {"archetype": "greatsword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "sweep", "casts": false},
 		"uchigatana": {"archetype": "katana", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "single", "casts": false},
+		"rapier": {"archetype": "thrusting_sword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.PIERCE, "pattern": "thrust", "casts": false},
 		"misericorde": {"archetype": "dagger", "item": Item.Type.KNIFE, "skill": Skills.Type.KNIFE, "damage": Damage.Type.PIERCE, "pattern": "burst", "casts": false},
 		"glintstone_staff": {"archetype": "staff", "item": Item.Type.WAND, "skill": Skills.Type.UTILITY, "damage": Damage.Type.BLUNT, "pattern": "single", "casts": true},
 		"finger_seal": {"archetype": "seal", "item": Item.Type.WAND, "skill": Skills.Type.UTILITY, "damage": Damage.Type.BLUNT, "pattern": "single", "casts": true},
@@ -86,6 +87,35 @@ func run() -> void:
 	check(sweep_left.hp == 100 - sweep_side and sweep_right.hp == 100 - sweep_side, "greatsword sweep clips both neighboring directions")
 	check(sweep_behind.hp == 100, "greatsword sweep does not hit behind player")
 	check(NightRun.charge == 12, "greatsword sweep grants attack charge once per action")
+
+	# Rapier attacks through one empty tile, but never through blockers.
+	map = _sandbox()
+	var rapier := NightRun.make_weapon("rapier")
+	_equip(rapier, map)
+	var rapier_target := NightRun.spawn_enemy("wolf", map, Vector2i(9, 7), 1)
+	_set_hp(rapier_target, 100)
+	NightRun.charge = 0
+	var rapier_damage := NightRun.weapon_damage(rapier, "wylder")
+	var thrust := PlayerAttackMoveAction.new(Vector2i.UP).apply(map)
+	check(thrust != null and thrust.success, "rapier thrust reaches a target two tiles away")
+	check(map.find_monster_position(World.player) == Vector2i(9, 9), "rapier thrust attacks without stepping forward")
+	check(rapier_target.hp == 100 - rapier_damage and NightRun.charge == 12, "rapier thrust deals one deterministic hit and one charge event")
+	map = _sandbox()
+	rapier = NightRun.make_weapon("rapier")
+	_equip(rapier, map)
+	var advance := PlayerAttackMoveAction.new(Vector2i.UP).apply(map)
+	check(advance != null and advance.success and map.find_monster_position(World.player) == Vector2i(9, 8), "rapier moves normally when no reach target exists")
+	map = _sandbox()
+	rapier = NightRun.make_weapon("rapier")
+	_equip(rapier, map)
+	var blocked_target := NightRun.spawn_enemy("wolf", map, Vector2i(9, 7), 1)
+	_set_hp(blocked_target, 100)
+	var blocker := Obstacle.new()
+	blocker.type = Obstacle.Type.DOOR_CLOSED
+	map.get_cell(Vector2i(9, 8)).obstacle = blocker
+	var blocked_thrust := PlayerAttackMoveAction.new(Vector2i.UP).apply(map)
+	check(blocked_target.hp == 100, "rapier cannot thrust through a closed door")
+	check(blocked_thrust != null and not blocked_thrust.success, "blocked rapier action does not phase through obstacle")
 
 	# Dagger spends one action/charge event on a compact two-hit burst.
 	map = _sandbox()
