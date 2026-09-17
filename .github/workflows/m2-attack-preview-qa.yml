@@ -1,4 +1,5 @@
 name: M2 Attack Preview QA
+# Mainline verification gate for data-driven Nightreign attack footprints.
 
 on:
   push:
