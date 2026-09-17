@@ -189,6 +189,11 @@ func trigger_attack_effect(to_direction: Vector2 = Vector2.ZERO) -> void:
 	if nightreign_visual:
 		nightreign_visual.face(Vector2i(to_direction))
 		nightreign_visual.play("melee_attack")
+	if monster == World.player:
+		var weapon := monster.equipment.get_equipped_item(Equipment.Slot.MELEE)
+		VisualEffects.animate_weapon_attack(
+			get_parent(), position + Constants.HALF_TILE_SIZE_VEC2, to_direction, weapon
+		)
 	var mat: ShaderMaterial = character.material
 	# Convert grid direction to pixel direction without normalizing
 	var bounce_dir: Vector2i = to_direction * (Constants.TILE_SIZE / 2.0)
