@@ -59,12 +59,14 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Keep workflow-file edits out of the bot commit. The GITHUB_TOKEN used here
+          # has contents:write but intentionally no workflows scope; source workflow
+          # changes are applied separately through the connected user commit path.
           git add \
             art/gen_items.py \
             assets/nightreign/data/weapon_archetypes.json \
             src/nightreign/expedition/night_run.gd \
             tests/weapon_archetypes.gd \
-            .github/workflows/m1-weapon-qa.yml \
             assets/generated/item_sprites.png \
             assets/generated/item_sprites.json \
             assets/generated/item_sprites.tres
