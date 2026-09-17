@@ -1,16 +1,18 @@
 [gd_resource type="Resource" script_class="NightreignCharacterVisual" load_steps=3 format=3]
 [ext_resource type="Script" path="res://src/nightreign/characters/character_visual.gd" id="1"]
-[ext_resource type="Texture2D" path="res://assets/nightreign/characters/wylder/idle-selected.png" id="2"]
+[ext_resource type="Texture2D" path="res://assets/nightreign/characters/wylder/t1-atlas.png" id="2"]
 [resource]
 script = ExtResource("1")
 display_name = "Wylder"
 atlas = ExtResource("2")
-shared_direction = true
+frame_size = Vector2i(48, 64)
+pivot = Vector2i(24, 60)
+shared_direction = false
 animations = {
-"idle": {"row": 0, "frames": 1, "fps": 4.0, "loop": true},
-"move": {"row": 0, "frames": 1, "fps": 10.0, "loop": false},
-"melee_attack": {"row": 0, "frames": 1, "fps": 4.0, "loop": false},
-"grappling_claw": {"row": 0, "frames": 1, "fps": 4.0, "loop": false},
-"hit": {"row": 0, "frames": 1, "fps": 5.0, "loop": false},
-"death": {"row": 0, "frames": 1, "fps": 2.0, "loop": false}
+"idle": {"row": 0, "frames": 2, "fps": 3.0, "loop": true, "phases": ["idle", "idle"]},
+"move": {"row": 8, "frames": 4, "fps": 20.0, "loop": false, "phases": ["move", "move", "move", "move"]},
+"melee_attack": {"row": 16, "frames": 4, "fps": 12.0, "loop": false, "phases": ["windup", "swing", "release", "recover"]},
+"grappling_claw": {"row": 16, "frames": 4, "fps": 12.0, "loop": false, "phases": ["windup", "release", "release", "recover"]},
+"hit": {"row": 24, "frames": 2, "fps": 12.0, "loop": false, "phases": ["hit", "recover"]},
+"death": {"row": 32, "frames": 4, "fps": 8.0, "loop": false, "phases": ["fall", "fall", "down", "down"]}
 }

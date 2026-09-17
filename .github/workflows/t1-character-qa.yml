@@ -1,0 +1,76 @@
+name: T1 Character QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - src/nightreign/characters/**
+      - src/nightreign/config/character_catalog.gd
+      - assets/nightreign/characters/**
+      - tests/character_preview.gd
+      - tests/character_preview.tscn
+      - .github/workflows/t1-character-qa.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - src/nightreign/characters/**
+      - src/nightreign/config/character_catalog.gd
+      - assets/nightreign/characters/**
+      - tests/character_preview.gd
+      - tests/character_preview.tscn
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  character-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Godot 4.6.3
+        run: |
+          curl -L --fail --retry 3 -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.3-stable_linux.x86_64
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --version
+
+      - name: Import project and reject script errors
+        shell: bash
+        run: |
+          set -o pipefail
+          rm -rf .godot
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --editor --import --path . --quit 2>&1 | tee /tmp/t1-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/t1-import.log
+
+      - name: Run T1 character contract
+        shell: bash
+        run: |
+          set -o pipefail
+          rm -f docs/characters/qa.json
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . res://tests/character_preview.tscn --quit-after 1800 2>&1 | tee /tmp/t1-character.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/t1-character.log
+          test -s docs/characters/qa.json
+          python3 - <<'PY'
+          import json
+          report = json.load(open('docs/characters/qa.json', encoding='utf-8'))
+          assert report.get('failures') == [], report.get('failures')
+          assert report.get('frame_size') == [48, 64], report.get('frame_size')
+          assert report.get('pivot') == [24, 60], report.get('pivot')
+          assert report.get('checks', 0) >= 50, report.get('checks')
+          print('T1 character QA:', report['checks'], 'checks passed')
+          PY
+
+      - name: Upload QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: t1-character-qa
+          path: |
+            docs/characters/qa.json
+            /tmp/t1-import.log
+            /tmp/t1-character.log
+          if-no-files-found: ignore

@@ -25,22 +25,50 @@ func face(direction: Vector2i) -> void:
 func play(next: String) -> void:
 	if animation == "death":
 		return
+	if not definition.animations.has(next):
+		push_warning("Unknown character animation: %s" % next)
+		return
 	animation = next
 	elapsed = 0.0
 	_render()
 
+func current_phase() -> String:
+	var data: Dictionary = definition.animations.get(animation, {})
+	var phases: Array = data.get("phases", [])
+	if phases.is_empty():
+		return animation
+	var index := _current_frame_index(data)
+	return str(phases[mini(index, phases.size() - 1)])
+
 func _process(delta: float) -> void:
+	if definition == null or not definition.animations.has(animation):
+		return
 	elapsed += delta
 	var data: Dictionary = definition.animations[animation]
-	if not data.loop and elapsed >= float(data.frames) / float(data.fps) and animation != "death":
+	if not bool(data.get("loop", false)) and elapsed >= _animation_duration(data) and animation != "death":
 		animation = "idle"
 		elapsed = 0.0
 	_render()
 
+func _animation_duration(data: Dictionary) -> float:
+	var fps := maxf(float(data.get("fps", 1.0)), 0.001)
+	return float(data.get("frames", 1)) / fps
+
+func _current_frame_index(data: Dictionary) -> int:
+	var frame_count := maxi(int(data.get("frames", 1)), 1)
+	var frame := int(elapsed * float(data.get("fps", 1.0)))
+	return frame % frame_count if bool(data.get("loop", false)) else mini(frame, frame_count - 1)
+
 func _render() -> void:
+	if definition == null or sprite == null or not definition.animations.has(animation):
+		return
 	var data: Dictionary = definition.animations[animation]
-	var frame := int(elapsed * float(data.fps))
-	frame = frame % int(data.frames) if data.loop else mini(frame, int(data.frames) - 1)
-	var row := int(data.row) + (0 if definition.shared_direction else definition.directions.find(facing))
+	var frame := _current_frame_index(data)
+	var direction_index := 0
+	if not definition.shared_direction:
+		direction_index = definition.directions.find(facing)
+		if direction_index < 0:
+			direction_index = 0
+	var row := int(data.get("row", 0)) + direction_index
 	sprite.region_rect = Rect2(Vector2(frame, row) * Vector2(definition.frame_size), Vector2(definition.frame_size))
 	sprite.visible = true
