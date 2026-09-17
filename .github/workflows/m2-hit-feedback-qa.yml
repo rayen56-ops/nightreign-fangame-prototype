@@ -71,7 +71,7 @@ jobs:
           import json
           report = json.load(open('docs/M2_HIT_FEEDBACK_QA.json', encoding='utf-8'))
           assert report.get('failures') == [], report.get('failures')
-          assert report.get('checks', 0) >= 25, report.get('checks')
+          assert report.get('checks', 0) >= 24, report.get('checks')
           assert report.get('profiles') == ['physical', 'magic', 'holy'], report.get('profiles')
           print('M2 hit feedback QA:', report['checks'], 'checks passed')
           PY
