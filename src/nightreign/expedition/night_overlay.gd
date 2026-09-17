@@ -6,6 +6,18 @@ var attack_preview: Dictionary = {}
 var attack_preview_target: Vector2i = Utils.INVALID_POS
 var controller_driver: NightControllerDriver
 
+func _hud_font() -> SystemFont:
+	var font := SystemFont.new()
+	font.font_names = PackedStringArray([
+		"Microsoft JhengHei UI",
+		"PingFang TC",
+		"Noto Sans CJK TC",
+		"Noto Sans TC",
+		"sans-serif",
+	])
+	font.allow_system_fallback = true
+	return font
+
 func _ready() -> void:
 	z_index = -1
 	controller_driver = preload("res://src/nightreign/input/night_controller_driver.gd").new()
@@ -19,40 +31,42 @@ func _ready() -> void:
 	backing.color = Color(0.04,0.03,0.07,0.93)
 	backing.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(backing)
+	var hud_font := _hud_font()
 	boss_bar = Label.new()
 	boss_bar.position = Vector2(180, 279)
+	boss_bar.add_theme_font_override("font", hud_font)
 	boss_bar.add_theme_font_size_override("font_size", 10)
 	boss_bar.add_theme_color_override("font_color", Color("e8bd77"))
 	layer.add_child(boss_bar)
 	combat_bar = Label.new()
 	combat_bar.position = Vector2(180, 294)
+	combat_bar.add_theme_font_override("font", hud_font)
 	combat_bar.add_theme_font_size_override("font_size", 9)
 	combat_bar.add_theme_color_override("font_color", Color("c8d7e8"))
 	layer.add_child(combat_bar)
 
 func _weapon_status_label() -> String:
 	if World.player == null:
-		return "Unarmed"
+		return "徒手"
 	var item := World.player.equipment.get_equipped_item(Equipment.Slot.MELEE)
 	if item == null:
-		return "Unarmed"
+		return "徒手"
 	if item.has_meta("night_weapon"):
-		var profile: Dictionary = NightRun.weapon_archetype(String(item.get_meta("night_weapon")))
-		return String(profile.get("label", item.name))
+		var weapon_id := String(item.get_meta("night_weapon"))
+		var profile: Dictionary = NightRun.weapon_archetype(weapon_id)
+		return NightUiText.weapon_name(weapon_id, String(profile.get("label", item.name)))
 	return item.name
 
 func combat_status_text() -> String:
 	if World.player == null:
 		return ""
-	var skill_state := "READY" if NightRun.cooldown <= 0 else "%dt" % NightRun.cooldown
-	var ultimate_state := "READY" if NightRun.charge >= 100 else "%d%%" % NightRun.charge
-	return "%s | %s | Skill %s | Ult %s | Flask %d" % [
-		CharacterCatalog.get_display_name(),
+	return NightUiText.combat_status(
+		CharacterCatalog.selected_id,
 		_weapon_status_label(),
-		skill_state,
-		ultimate_state,
-		NightRun.flasks,
-	]
+		NightRun.cooldown,
+		NightRun.charge,
+		NightRun.flasks
+	)
 
 func _night_weapon_context() -> Dictionary:
 	if World.player == null:
@@ -172,22 +186,25 @@ func _process(_delta: float) -> void:
 		return
 	combat_bar.text = combat_status_text()
 	var character: Dictionary = NightRun.character_data()
-	combat_bar.tooltip_text = "Skill: %s\nUltimate: %s\nPad: LS/D-pad Move | X Skill | Y Ult | LB Flask | RB Cast | L3 Wait" % [String(character.skill), String(character.ultimate)]
+	combat_bar.tooltip_text = NightUiText.combat_tooltip(String(character.skill), String(character.ultimate))
 	if map.depth < NightRun.boss_floor():
 		var remaining := NightRun.turns_until_next_tide(map)
 		var stage := NightRun.get_night_stage(map)
-		var tide_text := "Tide in %d" % remaining if stage < 2 else "DEEP NIGHT"
-		boss_bar.text = "Find the descent  |  Turn %d  |  %s" % [NightRun.get_floor_turns(map), tide_text]
+		boss_bar.text = NightUiText.expedition_progress(NightRun.get_floor_turns(map), remaining, stage)
 	else:
-		boss_bar.text = "Find Gladius, Beast of Night"
+		boss_bar.text = NightUiText.boss_search()
 	for monster in map.get_monsters():
 		if monster.get_meta("night_enemy", "") == "gladius":
 			var pos := map.find_monster_position(monster)
 			if map.visible_cells[pos.x][pos.y]:
-				var phase := "SPLIT PHASE" if bool(monster.get_meta("split_done", false)) else "Beast of Night"
-				boss_bar.text = "GLADIUS  %d / %d   |   %s" % [monster.hp, monster.max_hp, "LEAVE RED TILES" if NightRun.telegraphs.has(monster.get_instance_id()) else phase]
+				boss_bar.text = NightUiText.boss_status(
+					monster.hp,
+					monster.max_hp,
+					bool(monster.get_meta("split_done", false)),
+					NightRun.telegraphs.has(monster.get_instance_id())
+				)
 	if NightRun.won:
-		boss_bar.text = "NIGHTLORD FELLED"
+		boss_bar.text = NightUiText.victory()
 
 func _draw_attack_preview(map: Map) -> void:
 	if attack_preview.is_empty():
