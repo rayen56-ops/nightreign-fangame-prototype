@@ -12,6 +12,7 @@ on:
       - tests/night_overlay.tscn
       - tests/expedition.gd
       - tests/expedition.tscn
+      - docs/PRODUCTION_PLAN.md
       - .github/workflows/m2-hud-qa.yml
   pull_request:
     branches: [main]
@@ -24,6 +25,7 @@ on:
       - tests/night_overlay.tscn
       - tests/expedition.gd
       - tests/expedition.tscn
+      - docs/PRODUCTION_PLAN.md
       - .github/workflows/m2-hud-qa.yml
   workflow_dispatch:
 
