@@ -1,0 +1,37 @@
+name: Apply Item Clone Metadata Patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - tools/patch_item_clone_metadata.py
+      - .github/workflows/apply-item-clone-metadata.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply guarded clone patch
+        run: python3 tools/patch_item_clone_metadata.py
+
+      - name: Commit patched ItemFactory
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/item_factory.gd
+          if git diff --cached --quiet; then
+            echo 'ItemFactory clone metadata preservation already present.'
+            exit 0
+          fi
+          git commit -m 'M1: preserve runtime metadata when cloning items'
+          git push
