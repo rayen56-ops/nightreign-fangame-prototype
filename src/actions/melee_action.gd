@@ -2,11 +2,13 @@ class_name MeleeAction
 extends ActorAction
 
 var direction: Vector2i
+var reach: int = 1
 
 
-func _init(p_actor: Monster, dir: Vector2i) -> void:
+func _init(p_actor: Monster, dir: Vector2i, p_reach: int = 1) -> void:
 	super(p_actor)
 	direction = dir
+	reach = maxi(1, p_reach)
 
 
 func _player_weapon_profile() -> Dictionary:
@@ -75,7 +77,7 @@ func _execute_player_pattern(
 	profile: Dictionary
 ) -> bool:
 	var pattern := String(profile.get("attack_pattern", "single"))
-	if pattern == "single":
+	if pattern in ["single", "thrust"]:
 		return false
 
 	# Resolve the primary strike once so attack charge, affinities and boss buildup
@@ -137,7 +139,7 @@ func _execute(map: Map, result: ActionResult) -> bool:
 	if actor.has_status_effect(StatusEffect.Type.CONFUSED):
 		direction = Utils.ALL_DIRECTIONS.pick_random()
 
-	var target_pos := current_pos + direction
+	var target_pos := current_pos + direction.sign() * reach
 	if not map.is_in_bounds(target_pos):
 		return false
 
@@ -167,4 +169,4 @@ func _execute(map: Map, result: ActionResult) -> bool:
 
 
 func _to_string() -> String:
-	return "MeleeAction(actor: %s, direction: %s)" % [actor, direction]
+	return "MeleeAction(actor: %s, direction: %s, reach: %d)" % [actor, direction, reach]
