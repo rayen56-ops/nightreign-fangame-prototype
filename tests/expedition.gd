@@ -13,8 +13,7 @@ func _ready() -> void:
 
 func sandbox(id: String = "wylder") -> Map:
 	CharacterCatalog.select_character(id)
-	seed(16092026)
-	World.initialize()
+	World.initialize(16092026)
 	var map := NightRun.make_arena()
 	map.id = "qa_arena"
 	map.depth = 1
@@ -34,8 +33,7 @@ func relocate(monster: Monster, to: Vector2i) -> void:
 func run() -> void:
 	var fingerprints: Array[String] = []
 	for i in 2:
-		seed(16092026)
-		World.initialize()
+		World.initialize(16092026)
 		var fingerprint := ""
 		for x in World.current_map.width:
 			for y in World.current_map.height:
@@ -161,9 +159,16 @@ func run() -> void:
 	turn = World.current_turn
 	check(World.apply_player_action(PlayerRestAction.new()) == null and World.current_turn == turn, "game over rejects further turns")
 	CharacterCatalog.select_character("wylder")
-	World.initialize()
+	World.initialize(16092026)
 	var original := World.current_map
 	var entrance := pos(World.player)
+	var persistent_loot := NightRun.make_weapon("misericorde")
+	original.add_item(entrance, persistent_loot)
+	var preserved_enemy_ids: Array[int] = []
+	for enemy in original.get_monsters():
+		if enemy != World.player:
+			preserved_enemy_ids.append(enemy.get_instance_id())
+	preserved_enemy_ids.sort()
 	World.handle_level_transition("level_2", Obstacle.Type.STAIRS_DOWN)
 	var old_count := original.get_monsters().size()
 	var down := Utils.INVALID_POS
@@ -173,7 +178,17 @@ func run() -> void:
 	var blocker := NightRun.spawn_enemy("wolf", original, down)
 	World.handle_level_transition("level_1", Obstacle.Type.STAIRS_UP)
 	check(World.current_map == original and pos(World.player) == down and pos(blocker) != down, "returning to occupied stairs safely relocates blocker")
-	check(original.get_items(entrance).size() == 1 and original.get_monsters().size() == old_count + 2, "revisited floor preserves loot and enemies without respawn")
+	var returned_enemy_ids: Array[int] = []
+	for enemy in original.get_monsters():
+		if enemy != World.player and enemy != blocker:
+			returned_enemy_ids.append(enemy.get_instance_id())
+	returned_enemy_ids.sort()
+	check(
+		original.get_items(entrance).has(persistent_loot)
+		and returned_enemy_ids == preserved_enemy_ids
+		and original.get_monsters().size() == old_count + 2,
+		"revisited floor preserves loot and enemies without respawn"
+	)
 	for id: String in ["wylder", "revenant"]:
 		await expedition(id)
 	var report := {"checks": checks, "failures": failures, "expeditions": expeditions}
@@ -203,8 +218,7 @@ func path_step(goal: Vector2i) -> Vector2i:
 
 func expedition(id: String) -> void:
 	CharacterCatalog.select_character(id)
-	seed(16092026)
-	World.initialize()
+	World.initialize(16092026)
 	# Every action below uses the real turn pipeline; no health, damage or position cheats.
 	var initial := World.current_map.get_items(pos(World.player)).duplicate()
 	for item in initial:
@@ -260,6 +274,5 @@ func expedition(id: String) -> void:
 	check(visited == [1,2,3], id + " traverses the first three procedural floors via real actions")
 	check(not World.player.is_dead, id + " survives the three-floor smoke route")
 	expeditions.append({"character": id, "floors": visited, "actions": actions, "hp": World.player.hp, "won": NightRun.won, "runes": NightRun.runes})
-	World.initialize()
+	World.initialize(16092026)
 	check(not World.game_over and not NightRun.won and NightRun.runes == 0 and NightRun.flasks == 3, id + " new expedition resets run state")
-
