@@ -20,6 +20,14 @@ func _player_weapon_profile() -> Dictionary:
 	return NightRun.weapon_archetype(String(weapon.get_meta("night_weapon")))
 
 
+func _attack_affinity() -> StringName:
+	if actor == World.player:
+		var weapon := actor.equipment.get_equipped_item(Equipment.Slot.MELEE)
+		if weapon != null and weapon.has_meta("night_weapon"):
+			return StringName(String(weapon.get_meta("night_affinity", "physical")))
+	return &"physical"
+
+
 func _sweep_directions(dir: Vector2i) -> Array[Vector2i]:
 	var forward := dir.sign()
 	var directions: Array[Vector2i] = [forward]
@@ -56,6 +64,22 @@ func _apply_resolved_hit(
 	if target_monster == World.player:
 		result.message_level = LogMessages.Level.BAD
 	result.add_effect(AttackEffect.new(actor, Vector2(target_pos - current_pos) * -1, target_monster, current_pos))
+
+	var uses_nightreign_rules := actor == World.player or actor.has_meta("night_enemy") or actor.has_meta("family")
+	if uses_nightreign_rules and combat_result.damage > 0:
+		var hit := HitEffect.new(
+			target_monster,
+			Vector2(target_pos - current_pos).normalized(),
+			target_pos,
+			actor,
+			true,
+			combat_result.damage,
+			_attack_affinity()
+		)
+		result.add_effect(hit)
+		result.add_effect(
+			StatusPopupEffect.new(target_monster, target_pos, str(combat_result.damage), hit.feedback_color())
+		)
 
 	if combat_result.killed:
 		target_monster.is_dead = true
