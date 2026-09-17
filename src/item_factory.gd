@@ -322,6 +322,10 @@ static func clone(item: Item) -> Item:
 	new_item.stim_level = item.stim_level
 	new_item.stim_turns = item.stim_turns
 	new_item._mass = item._mass
+	# Runtime systems attach identity/progression data as metadata (for example
+	# Nightreign weapon archetype and affinity). A clone must keep that identity.
+	for meta_name: StringName in item.get_meta_list():
+		new_item.set_meta(meta_name, item.get_meta(meta_name))
 	return new_item
 
 
