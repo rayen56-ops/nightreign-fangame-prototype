@@ -38,8 +38,14 @@ func _execute(map: Map, result: ActionResult) -> bool:
 	if not target_monster:
 		return false
 
-	# Resolve combat
-	var combat_result := Combat.resolve_melee_attack(actor, target_monster)
+	# The Nightreign adaptation uses deterministic damage for the player, expedition enemies,
+	# and Revenant family summons. Unrelated upstream actors keep the original resolver.
+	var uses_nightreign_rules := actor == World.player or actor.has_meta("night_enemy") or actor.has_meta("family")
+	var combat_result := (
+		NightRun.resolve_melee(actor, target_monster)
+		if uses_nightreign_rules
+		else Combat.resolve_melee_attack(actor, target_monster)
+	)
 
 	# Apply damage (TODO: Shield absorption system)
 	target_monster.hp = max(0, target_monster.hp - combat_result.damage)
@@ -61,6 +67,8 @@ func _execute(map: Map, result: ActionResult) -> bool:
 
 		# Only remove monster if it's not the player
 		if target_monster != World.player:
+			if target_monster.has_meta("night_enemy"):
+				NightRun.on_killed(target_monster)
 			target_monster.drop_everything()
 			map.find_and_remove_monster(target_monster)
 			result.message_level = LogMessages.Level.GOOD

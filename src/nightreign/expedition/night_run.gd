@@ -1,6 +1,7 @@
 extends Node
 ## Turn-based adaptation layer. Map, FOV, Action and equipment remain upstream systems.
 var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/nightreign/data/expedition.json"))
+var weapon_profiles: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/nightreign/data/weapon_archetypes.json"))
 var cooldown: int = 0
 var charge: int = 0
 var immortal: int = 0
@@ -128,16 +129,54 @@ func reset_run() -> void:
 	World.player.equipment.equip(weapon, Equipment.Slot.MELEE)
 	prepare_map(World.current_map)
 
+func weapon_archetype_id(id: String) -> String:
+	assert(data.weapons.has(id), "Unknown Nightreign weapon: %s" % id)
+	assert(weapon_profiles.weapons.has(id), "Missing weapon archetype mapping: %s" % id)
+	return String(weapon_profiles.weapons[id])
+
+func weapon_archetype(id: String) -> Dictionary:
+	var archetype_id := weapon_archetype_id(id)
+	assert(weapon_profiles.archetypes.has(archetype_id), "Unknown weapon archetype: %s" % archetype_id)
+	return weapon_profiles.archetypes[archetype_id]
+
+func _item_type_from_name(type_name: String) -> int:
+	match type_name:
+		"SWORD": return Item.Type.SWORD
+		"KNIFE": return Item.Type.KNIFE
+		"WAND": return Item.Type.WAND
+	push_error("Unsupported Nightreign item type: %s" % type_name)
+	return Item.Type.MELEE
+
+func _skill_type_from_name(type_name: String) -> int:
+	match type_name:
+		"SWORD": return Skills.Type.SWORD
+		"KNIFE": return Skills.Type.KNIFE
+		"UTILITY": return Skills.Type.UTILITY
+	push_error("Unsupported Nightreign skill type: %s" % type_name)
+	return Skills.Type.NONE
+
+func _damage_type_from_name(type_name: String) -> int:
+	match type_name:
+		"SLASH": return Damage.Type.SLASH
+		"PIERCE": return Damage.Type.PIERCE
+		"BLUNT": return Damage.Type.BLUNT
+	push_error("Unsupported Nightreign damage type: %s" % type_name)
+	return Damage.Type.BLUNT
+
 func make_weapon(id: String) -> Item:
 	var entry: Dictionary = data.weapons[id]
+	var archetype_id := weapon_archetype_id(id)
+	var archetype: Dictionary = weapon_archetype(id)
 	var item := Item.new(true)
 	item.set_meta("night_weapon", id)
+	item.set_meta("night_archetype", archetype_id)
+	item.set_meta("night_affinity", String(entry.affinity))
 	item.name = entry.name
-	item.type = Item.Type.SWORD
-	item.skill_type = Skills.Type.SWORD
+	item.type = _item_type_from_name(String(archetype.item_type))
+	item.skill_type = _skill_type_from_name(String(archetype.skill_type))
 	item.damage = [1, int(entry.base)]
-	item.damage_types = [Damage.Type.SLASH]
-	# Reuse a verified upstream sword icon until the art pass replaces item icons.
+	item.damage_types = [_damage_type_from_name(String(archetype.damage_type))]
+	# Reuse a verified upstream sword icon until the item-art pass replaces icons by archetype.
 	item.sprite_name = ItemFactory.create_item(&"longsword").sprite_name
 	item._mass = 0.0
 	return item
@@ -153,6 +192,12 @@ func weapon_damage(item: Item, character_id: String = "") -> int:
 		total += float(data.grades[data.characters[character_id].grades[stat]]) * float(data.scaling[entry.scaling[stat]])
 	return roundi(total) + item.enhancement
 
+func weapon_damage_type(item: Item) -> int:
+	if item == null or not item.has_meta("night_weapon"):
+		return Damage.Type.BLUNT
+	var profile: Dictionary = weapon_archetype(String(item.get_meta("night_weapon")))
+	return _damage_type_from_name(String(profile.damage_type))
+
 func weapon_description(item: Item) -> String:
 	if item == null or not item.has_meta("night_weapon"):
 		return ""
@@ -160,7 +205,8 @@ func weapon_description(item: Item) -> String:
 	var parts: Array[String] = []
 	for stat: String in entry.scaling:
 		parts.append(stat + " " + entry.scaling[stat])
-	return "Scaling: %s\nAffinity: %s\nYour attack: %d\nNo stat requirement." % [", ".join(parts), entry.affinity, weapon_damage(item)]
+	var profile: Dictionary = weapon_archetype(String(item.get_meta("night_weapon")))
+	return "Archetype: %s\nScaling: %s\nAffinity: %s\nYour attack: %d\nNo stat requirement." % [profile.label, ", ".join(parts), entry.affinity, weapon_damage(item)]
 
 func spawn_enemy(id: String, map: Map, pos: Vector2i, depth: int = -1, force_elite: bool = false) -> Monster:
 	var entry: Dictionary = data.enemies[id]
@@ -482,9 +528,11 @@ func hurt(target: Monster, amount: int, result: ActionResult) -> void:
 func resolve_melee(attacker: Monster, defender: Monster) -> Combat.MeleeAttackResult:
 	var result := Combat.MeleeAttackResult.new()
 	var amount := 4
+	var resolved_damage_type := Damage.Type.SLASH
 	if attacker == World.player:
 		var weapon := attacker.equipment.get_equipped_item(Equipment.Slot.MELEE)
 		amount = weapon_damage(weapon)
+		resolved_damage_type = weapon_damage_type(weapon)
 		charge = mini(100, charge + 12)
 		if defender.get_meta("night_enemy", "") == "gladius" and weapon and weapon.has_meta("night_weapon"):
 			if data.weapons[weapon.get_meta("night_weapon")].affinity == "holy":
@@ -499,7 +547,7 @@ func resolve_melee(attacker: Monster, defender: Monster) -> Combat.MeleeAttackRe
 		amount = [5, 8, 6][int(attacker.get_meta("family"))] + (4 if immortal > 0 else 0)
 	if defender == World.player: charge = mini(100, charge + 6)
 	result.damage = protect_damage(defender, amount)
-	result.damage_type = Damage.Type.SLASH
+	result.damage_type = resolved_damage_type
 	result.killed = result.damage >= defender.hp
 	return result
 

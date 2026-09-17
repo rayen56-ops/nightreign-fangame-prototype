@@ -211,6 +211,7 @@ func is_weapon() -> bool:
 			Type.KNIFE,
 			Type.HAMMER,
 			Type.MELEE,
+			Type.WAND,
 			Type.THROWABLE,
 		]
 	)
