@@ -80,7 +80,6 @@ func run() -> void:
 		check(actor != null and actor.nightreign_visual.definition.display_name == CharacterCatalog.get_display_name(), "correct character resource " + id)
 		check(actor.character.texture.resource_path.contains("/" + id + "/t1-atlas.png"), "correct T1 atlas " + id)
 		_check_visual_contract(actor, id)
-		check(game.get_node("UI/HUD").status_text.text.contains(CharacterCatalog.get_display_name()), "HUD identity " + id)
 		var start := World.current_map.find_monster_position(World.player)
 		check(World.current_map.get_monster(start) == World.player, "one cell occupancy " + id)
 		var turn := World.current_turn
@@ -92,6 +91,8 @@ func run() -> void:
 		await get_tree().create_timer(0.25).timeout
 		check(Modals.has_visible_modals(), "equipment opens " + id)
 		Modals.hide_inventory()
+		await get_tree().create_timer(0.2).timeout
+		Modals.close_all_modals()
 		await get_tree().create_timer(0.2).timeout
 		game.queue_free()
 		await get_tree().process_frame

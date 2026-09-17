@@ -42,12 +42,24 @@ func _is_web_qa() -> bool:
 	return search.find("qa=1") >= 0
 
 
+func _prune_invalid_modals() -> void:
+	# Modals is an autoload, while most modal nodes live below Game/UI.
+	# Scene changes can therefore free a modal before this stack is revisited.
+	var valid_modals: Array[Modal] = []
+	for modal in modal_stack:
+		if is_instance_valid(modal):
+			valid_modals.append(modal)
+	modal_stack = valid_modals
+
+
 # Use this to block input when modals are visible or to check for input
 func are_any_modals_visible() -> bool:
+	_prune_invalid_modals()
 	return not modal_stack.is_empty()
 
 
 func _add_modal(modal: Modal) -> void:
+	_prune_invalid_modals()
 	# Add the modal to the UI
 	var root := get_node_or_null("/root/Game/UI")
 	if not root:
@@ -93,6 +105,7 @@ func prompt_for_direction() -> Vector3i:
 
 
 func show_inventory(tab: InventoryModal.Tab = InventoryModal.Tab.INVENTORY) -> InventoryModal:
+	_prune_invalid_modals()
 	# Check if an inventory modal already exists
 	for modal in modal_stack:
 		if modal is InventoryModal:
@@ -114,6 +127,7 @@ func show_inventory(tab: InventoryModal.Tab = InventoryModal.Tab.INVENTORY) -> I
 
 
 func toggle_inventory(tab: InventoryModal.Tab = InventoryModal.Tab.INVENTORY) -> void:
+	_prune_invalid_modals()
 	for modal in modal_stack:
 		if modal is InventoryModal:
 			modal._close_modal()
@@ -122,12 +136,14 @@ func toggle_inventory(tab: InventoryModal.Tab = InventoryModal.Tab.INVENTORY) ->
 
 
 func hide_inventory() -> void:
+	_prune_invalid_modals()
 	for modal in modal_stack:
 		if modal is InventoryModal:
 			modal._close_modal()
 
 
 func show_controls() -> void:
+	_prune_invalid_modals()
 	for modal in modal_stack:
 		if modal is ControlsModal:
 			return
@@ -136,6 +152,7 @@ func show_controls() -> void:
 
 
 func toggle_controls() -> void:
+	_prune_invalid_modals()
 	for modal in modal_stack.duplicate():
 		if modal is ControlsModal:
 			modal._close_modal()
@@ -144,6 +161,7 @@ func toggle_controls() -> void:
 
 
 func show_game_over() -> void:
+	_prune_invalid_modals()
 	for modal in modal_stack:
 		if modal is GameOverModal:
 			return
@@ -152,10 +170,12 @@ func show_game_over() -> void:
 
 
 func has_visible_modals() -> bool:
+	_prune_invalid_modals()
 	return not modal_stack.is_empty()
 
 
 func close_all_modals() -> void:
+	_prune_invalid_modals()
 	# Closing a modal mutates modal_stack through its signal. Iterate over a copy
 	# so no modal is skipped during game-over scene transitions.
 	for modal in modal_stack.duplicate():
