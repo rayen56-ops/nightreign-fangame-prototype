@@ -1,6 +1,7 @@
 extends Node2D
 ## Gameplay markers use actual visible map state; red cells are attack snapshots.
 var boss_bar: Label
+var combat_bar: Label
 
 func _ready() -> void:
 	z_index = -1
@@ -8,22 +9,54 @@ func _ready() -> void:
 	layer.layer = 2
 	add_child(layer)
 	var backing := ColorRect.new()
-	backing.position = Vector2(177,289)
-	backing.size = Vector2(399,25)
+	backing.position = Vector2(177,276)
+	backing.size = Vector2(399,38)
 	backing.color = Color(0.04,0.03,0.07,0.93)
 	backing.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(backing)
 	boss_bar = Label.new()
-	boss_bar.position = Vector2(180, 292)
+	boss_bar.position = Vector2(180, 279)
 	boss_bar.add_theme_font_size_override("font_size", 10)
 	boss_bar.add_theme_color_override("font_color", Color("e8bd77"))
 	layer.add_child(boss_bar)
+	combat_bar = Label.new()
+	combat_bar.position = Vector2(180, 294)
+	combat_bar.add_theme_font_size_override("font_size", 9)
+	combat_bar.add_theme_color_override("font_color", Color("c8d7e8"))
+	layer.add_child(combat_bar)
+
+func _weapon_status_label() -> String:
+	if World.player == null:
+		return "Unarmed"
+	var item := World.player.equipment.get_equipped_item(Equipment.Slot.MELEE)
+	if item == null:
+		return "Unarmed"
+	if item.has_meta("night_weapon"):
+		var profile: Dictionary = NightRun.weapon_archetype(String(item.get_meta("night_weapon")))
+		return String(profile.get("label", item.name))
+	return item.name
+
+func combat_status_text() -> String:
+	if World.player == null:
+		return ""
+	var skill_state := "READY" if NightRun.cooldown <= 0 else "%dt" % NightRun.cooldown
+	var ultimate_state := "READY" if NightRun.charge >= 100 else "%d%%" % NightRun.charge
+	return "%s | %s | Skill %s | Ult %s | Flask %d" % [
+		CharacterCatalog.get_display_name(),
+		_weapon_status_label(),
+		skill_state,
+		ultimate_state,
+		NightRun.flasks,
+	]
 
 func _process(_delta: float) -> void:
 	queue_redraw()
 	var map := World.current_map
 	if map == null:
 		return
+	combat_bar.text = combat_status_text()
+	var character: Dictionary = NightRun.character_data()
+	combat_bar.tooltip_text = "Skill: %s\nUltimate: %s" % [String(character.skill), String(character.ultimate)]
 	if map.depth < NightRun.boss_floor():
 		var remaining := NightRun.turns_until_next_tide(map)
 		var stage := NightRun.get_night_stage(map)
