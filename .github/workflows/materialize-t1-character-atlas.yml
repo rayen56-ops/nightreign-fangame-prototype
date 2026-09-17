@@ -1,0 +1,55 @@
+name: Materialize T1 Character Atlases
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - art/build_t1_character_atlas.py
+      - assets/nightreign/characters/wylder/idle-selected.png
+      - assets/nightreign/characters/revenant/idle-selected.png
+      - .github/workflows/materialize-t1-character-atlas.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build-atlases:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Pillow
+        run: python3 -m pip install --disable-pip-version-check pillow
+
+      - name: Build 48x64 atlases
+        run: python3 art/build_t1_character_atlas.py
+
+      - name: Validate dimensions
+        run: |
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          for character in ('wylder', 'revenant'):
+              path = Path('assets/nightreign/characters') / character / 't1-atlas.png'
+              image = Image.open(path)
+              assert image.size == (192, 2560), (character, image.size)
+              print(character, image.size)
+          PY
+
+      - name: Commit generated atlases
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add assets/nightreign/characters/wylder/t1-atlas.png
+          git add assets/nightreign/characters/revenant/t1-atlas.png
+          if git diff --cached --quiet; then
+            echo 'Atlases already current.'
+            exit 0
+          fi
+          git commit -m 'T1: materialize 48x64 character atlases'
+          git push
