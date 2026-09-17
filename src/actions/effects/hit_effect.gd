@@ -25,6 +25,16 @@ func _init(
 	affinity = p_affinity
 
 
+func feedback_color() -> Color:
+	match affinity:
+		&"magic":
+			return Color(0.42, 0.78, 1.0, 1.0)
+		&"holy":
+			return Color(1.0, 0.80, 0.30, 1.0)
+		_:
+			return Color(0.96, 0.92, 0.84, 1.0)
+
+
 func _to_string() -> String:
 	return (
 		"HitEffect(target: %s, direction: %s, source: %s, took_damage: %s, damage: %d, affinity: %s)"
