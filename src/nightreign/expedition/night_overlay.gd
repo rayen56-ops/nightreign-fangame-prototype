@@ -7,6 +7,7 @@ var attack_preview_target: Vector2i = Utils.INVALID_POS
 
 func _ready() -> void:
 	z_index = -1
+	add_child(preload("res://src/nightreign/input/night_controller_driver.gd").new())
 	var layer := CanvasLayer.new()
 	layer.layer = 2
 	add_child(layer)
@@ -153,7 +154,7 @@ func _process(_delta: float) -> void:
 		return
 	combat_bar.text = combat_status_text()
 	var character: Dictionary = NightRun.character_data()
-	combat_bar.tooltip_text = "Skill: %s\nUltimate: %s" % [String(character.skill), String(character.ultimate)]
+	combat_bar.tooltip_text = "Skill: %s\nUltimate: %s\nPad: LS/D-pad Move | X Skill | Y Ult | LB Flask | RB Cast | L3 Wait" % [String(character.skill), String(character.ultimate)]
 	if map.depth < NightRun.boss_floor():
 		var remaining := NightRun.turns_until_next_tide(map)
 		var stage := NightRun.get_night_stage(map)
