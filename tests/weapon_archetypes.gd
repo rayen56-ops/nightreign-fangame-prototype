@@ -12,8 +12,8 @@ func check(value: bool, label: String) -> void:
 func _ready() -> void:
 	call_deferred("run")
 
-func _sandbox() -> Map:
-	CharacterCatalog.select_character("wylder")
+func _sandbox(id: String = "wylder") -> Map:
+	CharacterCatalog.select_character(id)
 	World.initialize(17092026)
 	var map := NightRun.make_arena(1, "")
 	map.id = "weapon_qa"
@@ -34,13 +34,13 @@ func _set_hp(monster: Monster, amount: int) -> void:
 
 func run() -> void:
 	var cases := {
-		"longsword": {"archetype": "straight_sword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "single"},
-		"greatsword": {"archetype": "greatsword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "sweep"},
-		"uchigatana": {"archetype": "katana", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "single"},
-		"misericorde": {"archetype": "dagger", "item": Item.Type.KNIFE, "skill": Skills.Type.KNIFE, "damage": Damage.Type.PIERCE, "pattern": "burst"},
-		"glintstone_staff": {"archetype": "staff", "item": Item.Type.WAND, "skill": Skills.Type.UTILITY, "damage": Damage.Type.BLUNT, "pattern": "single"},
-		"finger_seal": {"archetype": "seal", "item": Item.Type.WAND, "skill": Skills.Type.UTILITY, "damage": Damage.Type.BLUNT, "pattern": "single"},
-		"sacred_blade": {"archetype": "straight_sword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "single"}
+		"longsword": {"archetype": "straight_sword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "single", "casts": false},
+		"greatsword": {"archetype": "greatsword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "sweep", "casts": false},
+		"uchigatana": {"archetype": "katana", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "single", "casts": false},
+		"misericorde": {"archetype": "dagger", "item": Item.Type.KNIFE, "skill": Skills.Type.KNIFE, "damage": Damage.Type.PIERCE, "pattern": "burst", "casts": false},
+		"glintstone_staff": {"archetype": "staff", "item": Item.Type.WAND, "skill": Skills.Type.UTILITY, "damage": Damage.Type.BLUNT, "pattern": "single", "casts": true},
+		"finger_seal": {"archetype": "seal", "item": Item.Type.WAND, "skill": Skills.Type.UTILITY, "damage": Damage.Type.BLUNT, "pattern": "single", "casts": true},
+		"sacred_blade": {"archetype": "straight_sword", "item": Item.Type.SWORD, "skill": Skills.Type.SWORD, "damage": Damage.Type.SLASH, "pattern": "single", "casts": false}
 	}
 
 	var map := _sandbox()
@@ -54,6 +54,7 @@ func run() -> void:
 		check(weapon.skill_type == expected.skill, "skill type " + weapon_id)
 		check(weapon.damage_types.size() == 1 and weapon.damage_types[0] == expected.damage, "damage profile " + weapon_id)
 		check(String(profile.get("attack_pattern", "")) == expected.pattern, "attack pattern " + weapon_id)
+		check(profile.has("cast") == expected.casts, "cast capability " + weapon_id)
 		check(weapon.is_weapon(), "recognized as weapon " + weapon_id)
 		World.player.add_item(weapon)
 		check(PlayerEquipAction.new(weapon, Equipment.Slot.MELEE).apply(map).success, "equips in melee slot " + weapon_id)
@@ -99,6 +100,40 @@ func run() -> void:
 	check(dagger_result != null and dagger_result.success, "dagger burst resolves as one action")
 	check(dagger_target.hp == 100 - dagger_hit * 2, "dagger burst lands two scaled hits")
 	check(NightRun.charge == 12, "dagger burst grants attack charge once per action")
+
+	# The existing fire-at-location gesture becomes catalyst casting when a staff/seal is in main hand.
+	map = _sandbox()
+	var staff := NightRun.make_weapon("glintstone_staff")
+	_equip(staff, map)
+	var staff_target := NightRun.spawn_enemy("wolf", map, Vector2i(9, 4), 1)
+	_set_hp(staff_target, 100)
+	NightRun.charge = 0
+	var staff_damage := NightRun.weapon_damage(staff, "wylder")
+	var cast_turn := World.current_turn
+	var staff_cast := World.apply_player_action(PlayerFireAction.new(Vector2i(9, 4)))
+	check(staff_cast != null and staff_cast.success and World.current_turn == cast_turn + 1, "staff cast consumes exactly one turn")
+	check(staff_target.hp == 100 - staff_damage, "staff cast hits first monster on line with INT-scaled damage")
+	check(NightRun.charge == 12, "staff cast grants attack charge once")
+	cast_turn = World.current_turn
+	var too_far := World.apply_player_action(PlayerFireAction.new(Vector2i(9, 2)))
+	check(too_far != null and not too_far.success and World.current_turn == cast_turn, "out-of-range staff cast fails without spending a turn")
+
+	map = _sandbox("revenant")
+	seal = NightRun.make_weapon("finger_seal")
+	_equip(seal, map)
+	var seal_target := NightRun.spawn_enemy("soldier", map, Vector2i(9, 5), 1)
+	_set_hp(seal_target, 100)
+	NightRun.charge = 0
+	var seal_damage := NightRun.weapon_damage(seal, "revenant")
+	var seal_cast := PlayerFireAction.new(Vector2i(9, 5)).apply(map)
+	check(seal_cast != null and seal_cast.success, "sacred seal uses fire-at-location cast path")
+	check(seal_target.hp == 100 - seal_damage, "sacred seal deals FAI-scaled ranged damage")
+	seal_target.hp = seal_damage
+	NightRun.runes = 0
+	NightRun.charge = 0
+	var seal_kill := PlayerFireAction.new(Vector2i(9, 5)).apply(map)
+	check(seal_kill != null and seal_kill.success and seal_target.is_dead, "sacred cast can kill Nightreign enemy")
+	check(NightRun.runes == 12 and NightRun.charge == 30, "spell kill grants runes plus attack/kill charge")
 
 	# Baseline deterministic melee and kill rewards remain intact.
 	map = _sandbox()
