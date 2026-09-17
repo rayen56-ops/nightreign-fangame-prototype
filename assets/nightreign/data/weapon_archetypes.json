@@ -1,0 +1,51 @@
+{
+  "revision": "M1.1-weapon-archetypes",
+  "note": "Turn-based adaptation metadata. Affinity remains a Nightreign-layer concept; damage_type maps only to the existing core Damage enum.",
+  "archetypes": {
+    "straight_sword": {
+      "label": "Straight Sword",
+      "item_type": "SWORD",
+      "skill_type": "SWORD",
+      "damage_type": "SLASH"
+    },
+    "greatsword": {
+      "label": "Greatsword",
+      "item_type": "SWORD",
+      "skill_type": "SWORD",
+      "damage_type": "SLASH"
+    },
+    "katana": {
+      "label": "Katana",
+      "item_type": "SWORD",
+      "skill_type": "SWORD",
+      "damage_type": "SLASH"
+    },
+    "dagger": {
+      "label": "Dagger",
+      "item_type": "KNIFE",
+      "skill_type": "KNIFE",
+      "damage_type": "PIERCE"
+    },
+    "staff": {
+      "label": "Glintstone Staff",
+      "item_type": "WAND",
+      "skill_type": "UTILITY",
+      "damage_type": "BLUNT"
+    },
+    "seal": {
+      "label": "Sacred Seal",
+      "item_type": "WAND",
+      "skill_type": "UTILITY",
+      "damage_type": "BLUNT"
+    }
+  },
+  "weapons": {
+    "longsword": "straight_sword",
+    "greatsword": "greatsword",
+    "uchigatana": "katana",
+    "misericorde": "dagger",
+    "glintstone_staff": "staff",
+    "finger_seal": "seal",
+    "sacred_blade": "straight_sword"
+  }
+}
