@@ -1,6 +1,6 @@
 {
-  "revision": "M1.2-melee-patterns",
-  "note": "Turn-based adaptation metadata. Affinity remains a Nightreign-layer concept; damage_type maps only to the existing core Damage enum. Melee archetypes now declare their runtime attack pattern. Staff and seal keep a temporary single-tile fallback until the ranged spellcasting pass.",
+  "revision": "M1.3-catalyst-casts",
+  "note": "Turn-based adaptation metadata. Affinity remains a Nightreign-layer concept; damage_type maps only to the existing core Damage enum. Greatswords sweep, daggers burst, and staff/seal catalysts expose explicit ranged casts while retaining a weak adjacent fallback through the melee slot.",
   "archetypes": {
     "straight_sword": {
       "label": "Straight Sword",
@@ -38,14 +38,26 @@
       "item_type": "WAND",
       "skill_type": "UTILITY",
       "damage_type": "BLUNT",
-      "attack_pattern": "single"
+      "attack_pattern": "single",
+      "cast": {
+        "name": "Glintstone Bolt",
+        "range": 6,
+        "multiplier": 1.0,
+        "affinity": "magic"
+      }
     },
     "seal": {
       "label": "Sacred Seal",
       "item_type": "WAND",
       "skill_type": "UTILITY",
       "damage_type": "BLUNT",
-      "attack_pattern": "single"
+      "attack_pattern": "single",
+      "cast": {
+        "name": "Sacred Spark",
+        "range": 4,
+        "multiplier": 1.0,
+        "affinity": "holy"
+      }
     }
   },
   "weapons": {
