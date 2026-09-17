@@ -1,13 +1,14 @@
 {
-  "revision": "M1.5-dedicated-weapon-icons",
-  "note": "Turn-based adaptation metadata. Weapon behavior and dedicated ItemTiles visuals are both data-driven. Greatswords sweep, daggers burst, thrusting swords reach two cells through one clear tile, and staff/seal catalysts expose explicit ranged casts.",
+  "revision": "M1.6-attack-visual-profiles",
+  "note": "Turn-based adaptation metadata. Weapon behavior, dedicated ItemTiles visuals, and attack readability cues are data-driven. Greatswords sweep, daggers burst, thrusting swords reach two cells through one clear tile, and staff/seal catalysts expose explicit ranged casts.",
   "archetypes": {
     "straight_sword": {
       "label": "Straight Sword",
       "item_type": "SWORD",
       "skill_type": "SWORD",
       "damage_type": "SLASH",
-      "attack_pattern": "single"
+      "attack_pattern": "single",
+      "visual_profile": "straight_slash"
     },
     "greatsword": {
       "label": "Greatsword",
@@ -15,14 +16,16 @@
       "skill_type": "SWORD",
       "damage_type": "SLASH",
       "attack_pattern": "sweep",
-      "side_multiplier": 0.75
+      "side_multiplier": 0.75,
+      "visual_profile": "greatsword_sweep"
     },
     "katana": {
       "label": "Katana",
       "item_type": "SWORD",
       "skill_type": "SWORD",
       "damage_type": "SLASH",
-      "attack_pattern": "single"
+      "attack_pattern": "single",
+      "visual_profile": "katana_slash"
     },
     "thrusting_sword": {
       "label": "Thrusting Sword",
@@ -30,7 +33,8 @@
       "skill_type": "SWORD",
       "damage_type": "PIERCE",
       "attack_pattern": "thrust",
-      "reach": 2
+      "reach": 2,
+      "visual_profile": "rapier_thrust"
     },
     "dagger": {
       "label": "Dagger",
@@ -39,7 +43,8 @@
       "damage_type": "PIERCE",
       "attack_pattern": "burst",
       "hits": 2,
-      "hit_multiplier": 0.65
+      "hit_multiplier": 0.65,
+      "visual_profile": "dagger_double"
     },
     "staff": {
       "label": "Glintstone Staff",
@@ -47,6 +52,7 @@
       "skill_type": "UTILITY",
       "damage_type": "BLUNT",
       "attack_pattern": "single",
+      "visual_profile": "glintstone",
       "cast": {
         "name": "Glintstone Bolt",
         "range": 6,
@@ -60,6 +66,7 @@
       "skill_type": "UTILITY",
       "damage_type": "BLUNT",
       "attack_pattern": "single",
+      "visual_profile": "incantation",
       "cast": {
         "name": "Sacred Spark",
         "range": 4,
