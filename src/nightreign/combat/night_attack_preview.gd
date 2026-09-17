@@ -89,8 +89,9 @@ static func build(
 	fallback_affinity: StringName = &"physical"
 ) -> Dictionary:
 	var p_affinity := affinity(profile, fallback_affinity)
+	var cells: Array[Vector2i] = []
 	var preview := {
-		"cells": [] as Array[Vector2i],
+		"cells": cells,
 		"target_in_range": false,
 		"consumes_turn": false,
 		"pattern": String(profile.get("attack_pattern", "single")),
