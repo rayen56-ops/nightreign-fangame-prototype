@@ -1,6 +1,7 @@
 extends Node
 var checks: int = 0
 var failures: Array[String] = []
+const MENU_BUTTON_ROOT := "CenterContainer/PanelContainer/MarginContainer/VBoxContainer/"
 
 func check(value: bool, description: String) -> void:
 	checks += 1
@@ -59,7 +60,8 @@ func run() -> void:
 	get_tree().root.add_child(menu)
 	get_tree().current_scene = menu
 	await get_tree().create_timer(0.3).timeout
-	check(menu.choices.size() == 2, "two visible character choices")
+	check(menu.has_node(MENU_BUTTON_ROOT + "PlayButton"), "Wylder choice is visible")
+	check(menu.has_node(MENU_BUTTON_ROOT + "RevenantButton"), "Revenant choice is visible")
 	await capture("selection")
 	menu.queue_free()
 	await get_tree().process_frame
@@ -67,10 +69,10 @@ func run() -> void:
 		menu = menu_scene.instantiate()
 		get_tree().root.add_child(menu)
 		get_tree().current_scene = menu
-		menu.choices[id].pressed.emit()
-		check(CharacterCatalog.selected_id == id, "selection button sets " + id)
+		var button_name := "PlayButton" if id == "wylder" else "RevenantButton"
+		menu.get_node(MENU_BUTTON_ROOT + button_name).pressed.emit()
+		check(CharacterCatalog.selected_id == id, "menu selects " + id)
 		seed(15092026)
-		menu.get_node("CenterContainer/PanelContainer/MarginContainer/VBoxContainer/PlayButton").pressed.emit()
 		await get_tree().create_timer(0.65).timeout
 		var game := get_tree().current_scene
 		check(game.name == "Game", "menu starts real game " + id)

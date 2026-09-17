@@ -13,10 +13,15 @@ func _ready() -> void:
 		set_meta("nightreign_qa_autostart", true)
 		call_deferred("_on_play_button_pressed")
 
-
-func _on_play_button_pressed() -> void:
+func _start_character(id: String) -> void:
+	CharacterCatalog.select_character(id)
 	get_tree().change_scene_to_file("res://scenes/game/game.tscn")
 
+func _on_play_button_pressed() -> void:
+	_start_character("wylder")
+
+func _on_revenant_button_pressed() -> void:
+	_start_character("revenant")
 
 func _on_quit_button_pressed() -> void:
 	get_tree().quit()
