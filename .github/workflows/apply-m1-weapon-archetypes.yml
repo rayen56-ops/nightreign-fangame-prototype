@@ -1,0 +1,37 @@
+name: Apply M1 Weapon Archetypes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - tools/apply_m1_weapon_archetypes.py
+      - .github/workflows/apply-m1-weapon-archetypes.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply guarded source patch
+        run: python3 tools/apply_m1_weapon_archetypes.py
+
+      - name: Commit patched runtime
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/nightreign/expedition/night_run.gd src/actions/melee_action.gd src/item.gd
+          if git diff --cached --quiet; then
+            echo 'Weapon runtime already patched.'
+            exit 0
+          fi
+          git commit -m 'M1: wire weapon archetypes and deterministic melee'
+          git push
