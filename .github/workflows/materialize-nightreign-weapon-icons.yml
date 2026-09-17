@@ -1,0 +1,72 @@
+name: Materialize Nightreign Weapon Icons
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - art/nightreign_weapon_icons.py
+      - tools/apply_m15_weapon_visuals.py
+      - .github/workflows/materialize-nightreign-weapon-icons.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Pillow
+        run: python3 -m pip install --disable-pip-version-check pillow
+
+      - name: Apply M1.5 source contract
+        run: python3 tools/apply_m15_weapon_visuals.py
+
+      - name: Materialize icons into shared atlas
+        run: python3 art/nightreign_weapon_icons.py
+
+      - name: Validate atlas contract
+        run: |
+          python3 - <<'PY'
+          import json
+          from PIL import Image
+          expected = {
+              'night-longsword', 'night-greatsword', 'night-katana', 'night-rapier',
+              'night-dagger', 'night-staff', 'night-seal', 'night-sacred-blade'
+          }
+          payload = json.load(open('assets/generated/item_sprites.json', encoding='utf-8'))
+          sprites = payload['sprites']
+          assert expected <= set(sprites), expected - set(sprites)
+          coords = [tuple(sprites[name]) for name in expected]
+          assert len(coords) == len(set(coords)) == 8, coords
+          image = Image.open('assets/generated/item_sprites.png')
+          assert image.size[0] % 16 == 0 and image.size[1] % 16 == 0, image.size
+          tres = open('assets/generated/item_sprites.tres', encoding='utf-8').read()
+          for x, y in coords:
+              assert f'{x // 16}:{y // 16}/0 = 0' in tres, (x, y)
+          print('Nightreign icon atlas contract OK:', coords)
+          PY
+
+      - name: Commit materialized visual contract
+        run: |
+          if git diff --quiet; then
+            echo "Weapon visuals already materialized"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            art/gen_items.py \
+            assets/nightreign/data/weapon_archetypes.json \
+            src/nightreign/expedition/night_run.gd \
+            tests/weapon_archetypes.gd \
+            .github/workflows/m1-weapon-qa.yml \
+            assets/generated/item_sprites.png \
+            assets/generated/item_sprites.json \
+            assets/generated/item_sprites.tres
+          git commit -m "M1.5: materialize dedicated Nightreign weapon visuals"
+          git push
