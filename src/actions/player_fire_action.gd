@@ -15,6 +15,12 @@ func _to_string() -> String:
 
 
 func _execute(map: Map, result: ActionResult) -> bool:
+	# Nightreign catalysts live in the melee/main-hand slot but use the existing
+	# fire-at-location targeting gesture. Keep ordinary upstream ranged weapons intact.
+	var main_hand := World.player.equipment.get_equipped_item(Equipment.Slot.MELEE)
+	if NightSpellAction.is_catalyst(main_hand):
+		return NightSpellAction.new(target_pos)._execute(map, result)
+
 	# Get the wielded weapon
 	var weapon := World.player.equipment.get_equipped_item(Equipment.Slot.RANGED)
 	if not weapon:
