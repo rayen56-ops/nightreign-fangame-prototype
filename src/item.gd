@@ -64,11 +64,13 @@ var delicious: bool = false
 var palatable: bool = false
 var gross: bool = false
 var hp: int = 0
-var stim_level: int = 0
-var stim_turns: int = 0
+var stim_level: int = 0  # 0 = no stim, 1 = STIM1, 2 = STIM2
+var stim_turns: int = 0  # Number of turns the stim effect lasts
 
 
 func _init(i_know_what_im_doing: bool = false) -> void:
+	# We need to be super careful about instantiating items directly, therefore
+	# we only allow it in a few places.
 	assert(i_know_what_im_doing, "Items must be created through ItemFactory")
 
 
@@ -100,7 +102,7 @@ func get_name(format: NameFormat = NameFormat.PLAIN, with_quantity: bool = true)
 		NameFormat.CAPITALIZED:
 			return "The " + n + quantity_str
 
-	return "the " + n + quantity_str
+	return "the " + n + quantity_str  # Default fallback
 
 
 func _nightreign_attack_summary(profile: Dictionary) -> String:
@@ -227,9 +229,13 @@ func split(n: int) -> Item:
 		Log.e("Splitting a container doesn't make sense")
 		return null
 
+	# Clone the item
 	var new_item := ItemFactory.clone(self)
 	new_item.quantity = n
+
+	# Adjust the quantity of the original item
 	quantity -= n
+
 	return new_item
 
 
@@ -276,15 +282,20 @@ func add_child(item: Item, at_index: int = -1) -> bool:
 	if item.parent != null:
 		item.parent.remove_child(item)
 
+	# If at_index is specified, we need to insert at that position
 	if at_index != -1:
+		# Check if we can add more children
 		if max_children <= 0 or children.size() >= max_children:
 			Log.e("Cannot add more children")
 			return false
+
 		children.add(item)
 	else:
+		# Check if we can add more children
 		if max_children <= 0 or children.size() >= max_children:
 			Log.e("Cannot add more children")
 			return false
+
 		children.add(item)
 
 	item.parent = self
@@ -292,9 +303,11 @@ func add_child(item: Item, at_index: int = -1) -> bool:
 
 
 func has_child(item: Item) -> bool:
+	# First check direct children
 	if children.has(item):
 		return true
 
+	# Recursively check children's children
 	for child: Item in children.to_array():
 		if child.has_child(item):
 			return true
@@ -303,11 +316,13 @@ func has_child(item: Item) -> bool:
 
 
 func remove_child(item: Item) -> bool:
+	# First check direct children
 	if children.has(item):
 		children.remove(item)
 		item.parent = null
 		return true
 
+	# Recursively check children's children
 	for child: Item in children.to_array():
 		if child.remove_child(item):
 			return true
@@ -316,9 +331,12 @@ func remove_child(item: Item) -> bool:
 
 
 func get_mass() -> float:
-	var total_mass := _mass * quantity
+	var total_mass := _mass * quantity  # Base _mass times quantity
+
+	# Add _mass of contained items recursively
 	for child: Item in children.to_array():
 		total_mass += child.get_mass()
+
 	return total_mass
 
 
@@ -344,32 +362,41 @@ class CanAcceptChildResult:
 	var reason: String = ""
 
 
+## Checks if this item can accept another item as a child
+## This handles both containers and items with modules (guns, armor)
 func can_accept_child(child_item: Item) -> CanAcceptChildResult:
 	var result := CanAcceptChildResult.new()
 
+	# If the item is itself, accept it, and let reparent_item_action handle the rest
 	if child_item == self:
 		result.can_accept = true
 		return result
 
+	# Check if the item can accept children
 	if max_children == 0:
 		result.reason = "You can't put that in there."
 		return result
 
+	# Check if we have space for more children
 	if children.size() >= max_children:
 		result.reason = "The %s is full." % get_name(NameFormat.THE)
 		return result
 
+	# Check for circular references
 	if child_item == self or (child_item.is_container() and child_item.has_child(self)):
 		result.reason = "You cannot put something inside itself."
 		return result
 
+	# Handle different item types
 	if is_container():
+		# Regular container logic
 		if not is_open:
 			result.reason = "The %s is closed." % get_name(NameFormat.THE)
 			return result
 		result.can_accept = true
 		return result
 	elif type == Type.GUN:
+		# Gun can only accept matching ammo
 		if child_item.type != Type.AMMO:
 			result.reason = "Only ammo can be loaded into a gun."
 			return result
@@ -379,6 +406,7 @@ func can_accept_child(child_item: Item) -> CanAcceptChildResult:
 		result.can_accept = true
 		return result
 	elif is_armor():
+		# Armor can only accept modules and power sources
 		if not child_item.type == Type.MODULE:
 			result.reason = (
 				"Only modules can be attached to %s." % get_name(NameFormat.THE)
@@ -387,17 +415,22 @@ func can_accept_child(child_item: Item) -> CanAcceptChildResult:
 		result.can_accept = true
 		return result
 
+	# Default case - item doesn't accept children
 	result.reason = "%s doesn't have attachments." % get_name(NameFormat.THE)
 	return result
 
 
+## Checks if this item is "open" for showing children
+## This handles both containers and items with modules
 func is_open_for_children() -> bool:
 	if is_container():
 		return is_open
 	elif type == Type.GUN:
+		# Guns are always "open" for showing ammo
 		return true
 	elif is_armor():
 		return true
 	elif children.size() > 0:
+		# Other items with children use the is_open flag
 		return is_open
 	return false
