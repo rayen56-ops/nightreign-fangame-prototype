@@ -1,6 +1,6 @@
 {
-  "revision": "M1.6-attack-visual-profiles",
-  "note": "Turn-based adaptation metadata. Weapon behavior, dedicated ItemTiles visuals, and attack readability cues are data-driven and CI-gated. Greatswords sweep, daggers burst, thrusting swords reach two cells through one clear tile, and staff/seal catalysts expose explicit ranged casts.",
+  "revision": "M1.7-weapon-info-readability",
+  "note": "Turn-based adaptation metadata. Weapon behavior, dedicated ItemTiles visuals, attack readability cues, and player-facing tooltips are data-driven and CI-gated. Greatswords sweep, daggers burst, thrusting swords reach two cells through one clear tile, and staff/seal catalysts expose explicit ranged casts.",
   "archetypes": {
     "straight_sword": {
       "label": "Straight Sword",
