@@ -3,6 +3,8 @@ extends Node
 
 var _left_axes := Vector2.ZERO
 var _stick_armed := true
+var controller_active := false
+var preview_direction := Vector2i.ZERO
 
 
 func _game() -> Node:
@@ -14,6 +16,27 @@ func _can_accept_gameplay_input(game: Node) -> bool:
 	if game == null or World.game_over or Modals.has_visible_modals():
 		return false
 	return bool(game.get("waiting_for_player_input"))
+
+
+func set_controller_active(direction := Vector2i.ZERO) -> void:
+	controller_active = true
+	if direction != Vector2i.ZERO:
+		preview_direction = direction.sign()
+	elif preview_direction == Vector2i.ZERO:
+		preview_direction = NightRun.facing.sign()
+		if preview_direction == Vector2i.ZERO:
+			preview_direction = Vector2i.UP
+
+
+func set_controller_inactive() -> void:
+	controller_active = false
+
+
+func controller_preview_direction() -> Vector2i:
+	if preview_direction != Vector2i.ZERO:
+		return preview_direction.sign()
+	var direction := NightRun.facing.sign()
+	return direction if direction != Vector2i.ZERO else Vector2i.UP
 
 
 func _submit_action(game: Node, action: BaseAction) -> void:
@@ -51,14 +74,16 @@ func _ability_action(kind: String) -> BaseAction:
 		return NightAbilityAction.new(kind)
 	if CharacterCatalog.selected_id == "revenant":
 		return NightAbilityAction.new(kind)
-	var direction := NightRun.facing.sign()
-	if direction == Vector2i.ZERO:
-		direction = Vector2i.UP
+	var direction := controller_preview_direction()
 	return NightAbilityAction.new(kind, direction)
 
 
 func _cast_action() -> BaseAction:
-	var target := NightControllerInput.facing_cast_target(World.current_map, World.player, NightRun.facing)
+	var target := NightControllerInput.facing_cast_target(
+		World.current_map,
+		World.player,
+		controller_preview_direction()
+	)
 	if target == Utils.INVALID_POS:
 		return null
 	return PlayerFireAction.new(target)
@@ -67,6 +92,7 @@ func _cast_action() -> BaseAction:
 func _handle_command(game: Node, command: StringName) -> void:
 	var direction := NightControllerInput.command_direction(command)
 	if direction != Vector2i.ZERO:
+		set_controller_active(direction)
 		_submit_action(game, PlayerAttackMoveAction.new(direction))
 		return
 	match command:
@@ -108,12 +134,31 @@ func _handle_stick_motion(game: Node, event: InputEventJoypadMotion) -> void:
 	if direction == Vector2i.ZERO:
 		return
 	_stick_armed = false
+	set_controller_active(direction)
 	_submit_action(game, PlayerAttackMoveAction.new(direction))
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventKey:
+		if (event as InputEventKey).pressed:
+			set_controller_inactive()
+		return
+	if event is InputEventMouseButton:
+		if (event as InputEventMouseButton).pressed:
+			set_controller_inactive()
+		return
 	if not (event is InputEventJoypadButton or event is InputEventJoypadMotion):
 		return
+
+	if event is InputEventJoypadButton:
+		var button := event as InputEventJoypadButton
+		if button.pressed:
+			set_controller_active()
+	elif event is InputEventJoypadMotion:
+		var motion := event as InputEventJoypadMotion
+		if motion.axis in [JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y] and absf(motion.axis_value) >= NightControllerInput.STICK_NEUTRAL:
+			set_controller_active()
+
 	var game := _game()
 	if not _can_accept_gameplay_input(game):
 		return

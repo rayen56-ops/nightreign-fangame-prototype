@@ -4,10 +4,12 @@ var boss_bar: Label
 var combat_bar: Label
 var attack_preview: Dictionary = {}
 var attack_preview_target: Vector2i = Utils.INVALID_POS
+var controller_driver: NightControllerDriver
 
 func _ready() -> void:
 	z_index = -1
-	add_child(preload("res://src/nightreign/input/night_controller_driver.gd").new())
+	controller_driver = preload("res://src/nightreign/input/night_controller_driver.gd").new()
+	add_child(controller_driver)
 	var layer := CanvasLayer.new()
 	layer.layer = 2
 	add_child(layer)
@@ -105,6 +107,22 @@ func _build_attack_preview() -> Dictionary:
 	var context := _night_weapon_context()
 	if context.is_empty():
 		return {}
+	var source := map.find_monster_position(World.player)
+	if source == Utils.INVALID_POS:
+		return {}
+	var profile: Dictionary = context.profile
+
+	# A controller owns the preview after its last deliberate input. Keyboard or mouse
+	# button input hands preview ownership back to the original cursor path.
+	if controller_driver != null and controller_driver.controller_active:
+		return NightControllerPreview.build(
+			map,
+			World.player,
+			profile,
+			context.affinity,
+			controller_driver.controller_preview_direction()
+		)
+
 	var mouse_pos := get_local_mouse_position()
 	var tile_pos := Vector2i(mouse_pos / Constants.TILE_SIZE)
 	if not map.is_in_bounds(tile_pos) or not map.is_visible(tile_pos):
@@ -112,14 +130,13 @@ func _build_attack_preview() -> Dictionary:
 	var terrain := map.get_terrain(tile_pos)
 	if terrain.type == Terrain.Type.EMPTY:
 		return {}
-	var source := map.find_monster_position(World.player)
-	if source == Utils.INVALID_POS or source == tile_pos:
+	if source == tile_pos:
 		return {}
-	var profile: Dictionary = context.profile
 	var preview := NightAttackPreview.build(profile, source, tile_pos, context.affinity)
 	if profile.has("cast"):
 		preview["cells"] = _clip_cast_cells(map, preview.get("cells", []))
 		preview["target"] = tile_pos
+		preview["input_mode"] = "mouse"
 		return preview
 	var target := map.get_monster(tile_pos)
 	if target == null or target == World.player or not target.is_hostile_to(World.player):
@@ -129,6 +146,7 @@ func _build_attack_preview() -> Dictionary:
 	if String(preview.get("pattern", "")) == "thrust" and not _thrust_path_clear(map, preview):
 		return {}
 	preview["target"] = tile_pos
+	preview["input_mode"] = "mouse"
 	return preview
 
 func _suppress_legacy_path_preview() -> void:
