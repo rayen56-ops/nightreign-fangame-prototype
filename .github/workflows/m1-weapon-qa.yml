@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - src/nightreign/expedition/night_run.gd
+      - src/actions/attack_move_action.gd
       - src/actions/melee_action.gd
       - src/actions/player_fire_action.gd
       - src/actions/night_spell_action.gd
       - src/item.gd
+      - assets/nightreign/data/expedition.json
       - assets/nightreign/data/weapon_archetypes.json
       - tests/weapon_archetypes.gd
       - tests/weapon_archetypes.tscn
@@ -19,10 +21,12 @@ on:
     branches: [main]
     paths:
       - src/nightreign/expedition/night_run.gd
+      - src/actions/attack_move_action.gd
       - src/actions/melee_action.gd
       - src/actions/player_fire_action.gd
       - src/actions/night_spell_action.gd
       - src/item.gd
+      - assets/nightreign/data/expedition.json
       - assets/nightreign/data/weapon_archetypes.json
       - tests/weapon_archetypes.gd
       - tests/weapon_archetypes.tscn
@@ -69,8 +73,8 @@ jobs:
           import json
           report = json.load(open('docs/WEAPON_QA.json', encoding='utf-8'))
           assert report.get('failures') == [], report.get('failures')
-          assert report.get('weapon_count') == 7, report.get('weapon_count')
-          assert report.get('checks', 0) >= 80, report.get('checks')
+          assert report.get('weapon_count') == 8, report.get('weapon_count')
+          assert report.get('checks', 0) >= 95, report.get('checks')
           print('M1 weapon QA:', report['checks'], 'checks passed')
           PY
 
