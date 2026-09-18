@@ -208,7 +208,7 @@ func render_ground(map: Map) -> void:
 			var tile: StringName
 
 			match terrain.type:
-				Terrain.Type.DUNGEON_FLOOR, 				Terrain.Type.DUNGEON_FLOOR_GRATE, 				Terrain.Type.DUNGEON_HOLE, 				Terrain.Type.DUNGEON_DOOR_OPEN, 				Terrain.Type.DUNGEON_DOOR_CLOSED:
+				Terrain.Type.DUNGEON_FLOOR, Terrain.Type.DUNGEON_FLOOR_GRATE, Terrain.Type.DUNGEON_HOLE, Terrain.Type.DUNGEON_DOOR_OPEN, Terrain.Type.DUNGEON_DOOR_CLOSED:
 					tile = NightEnvironmentVisuals.ground_tile_for(terrain.type)
 				Terrain.Type.DUNGEON_WALL, Terrain.Type.DUNGEON_WALL_VENTED:
 					if terrain_mode:
