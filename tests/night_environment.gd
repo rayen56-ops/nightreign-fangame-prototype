@@ -11,13 +11,13 @@ func check(value: bool, label: String) -> void:
 	print("M2 ENVIRONMENT QA %s: %s" % ["PASS" if value else "FAIL", label])
 
 
-func terrain_of(type: Terrain.Type) -> Terrain:
+func terrain_of(type: int) -> Terrain:
 	var terrain := Terrain.new()
 	terrain.type = type
 	return terrain
 
 
-func obstacle_of(type: Obstacle.Type) -> Obstacle:
+func obstacle_of(type: int) -> Obstacle:
 	var obstacle := Obstacle.new()
 	obstacle.type = type
 	return obstacle
