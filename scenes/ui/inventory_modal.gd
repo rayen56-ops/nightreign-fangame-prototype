@@ -16,6 +16,7 @@ signal unequip_requested(action: PlayerUnequipAction)
 signal throw_requested(selections: Array[ItemSelection])
 signal message_logged(message: String)
 signal use_requested(item: Item)
+signal upgrade_requested(item: Item)
 signal reparent_requested(action: PlayerReparentItemAction)
 signal toggle_container_requested(item: Item)
 
@@ -204,6 +205,11 @@ func _on_use_button_pressed() -> void:
 		return
 
 	var selected_item := items[0]
+
+	if selected_item.has_meta("night_weapon"):
+		upgrade_requested.emit(selected_item)
+		_close_modal()
+		return
 
 	# Check if item is a container or has children
 	if selected_item.is_container() or selected_item.children.size() > 0:
@@ -431,20 +437,26 @@ func _update_buttons() -> void:
 					var selected_item := selection[0]
 					throw_button.disabled = false
 
-					# Update use button text and state for different item types
-					if selected_item.type == Item.Type.CONSUMABLE and selected_item.nutrition > 0:
+					# Update use button text and state for different item types.
+					if selected_item.has_meta("night_weapon"):
+						use_button.text = "Upgrade"
+						use_button.disabled = (
+							not NightRun.is_at_grace(World.current_map)
+							or NightRun.weapon_upgrade_cost(selected_item) < 0
+						)
+					elif selected_item.type == Item.Type.CONSUMABLE and selected_item.nutrition > 0:
 						use_button.text = "Eat"
+						use_button.disabled = not UseItemAction.can_use_item(selected_item)
 					elif selected_item.is_container():
 						use_button.text = "Open" if not selected_item.is_open else "Close"
 						use_button.disabled = false
 					else:
 						use_button.text = "Use"
-
-					use_button.disabled = (
-						not UseItemAction.can_use_item(selected_item)
-						and not selected_item.is_container()
-						and selected_item.children.size() == 0
-					)
+						use_button.disabled = (
+							not UseItemAction.can_use_item(selected_item)
+							and not selected_item.is_container()
+							and selected_item.children.size() == 0
+						)
 
 					if (
 						World.player.equipment.get_slot_where_item_is_equipped(selected_item)
