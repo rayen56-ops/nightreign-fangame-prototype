@@ -1,0 +1,120 @@
+name: M2 Character Art QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - art/build_t1_character_atlas.py
+      - art/check_m2_character_art.py
+      - assets/nightreign/characters/wylder/t1-atlas.png
+      - assets/nightreign/characters/revenant/t1-atlas.png
+      - assets/nightreign/characters/wylder/selectable.tres
+      - assets/nightreign/characters/revenant/selectable.tres
+      - tests/character_preview.gd
+      - tests/character_preview.tscn
+      - .github/workflows/m2-character-art-qa.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - art/build_t1_character_atlas.py
+      - art/check_m2_character_art.py
+      - assets/nightreign/characters/wylder/t1-atlas.png
+      - assets/nightreign/characters/revenant/t1-atlas.png
+      - assets/nightreign/characters/wylder/selectable.tres
+      - assets/nightreign/characters/revenant/selectable.tres
+      - tests/character_preview.gd
+      - tests/character_preview.tscn
+      - .github/workflows/m2-character-art-qa.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  character-art:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Pillow
+        run: python3 -m pip install --disable-pip-version-check pillow
+
+      - name: Verify committed atlases are reproducible
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp assets/nightreign/characters/wylder/t1-atlas.png /tmp/wylder-before.png
+          cp assets/nightreign/characters/revenant/t1-atlas.png /tmp/revenant-before.png
+          python3 art/build_t1_character_atlas.py
+          cmp /tmp/wylder-before.png assets/nightreign/characters/wylder/t1-atlas.png
+          cmp /tmp/revenant-before.png assets/nightreign/characters/revenant/t1-atlas.png
+          echo "Committed atlases exactly match the builder."
+
+      - name: Run directional pixel-art quality contract
+        shell: bash
+        run: |
+          set -o pipefail
+          rm -f docs/characters/M2_CHARACTER_ART_QA.json
+          python3 art/check_m2_character_art.py 2>&1 | tee /tmp/m2-character-art.log
+          test -s docs/characters/M2_CHARACTER_ART_QA.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open('docs/characters/M2_CHARACTER_ART_QA.json',encoding='utf-8'))
+          assert r.get('failures') == [], r.get('failures')
+          assert r.get('checks',0) >= 300, r.get('checks')
+          assert r.get('frame_size') == [48,64], r.get('frame_size')
+          assert r.get('pivot') == [24,60], r.get('pivot')
+          assert r.get('art_method') == 'directionally constructed pixel structures', r.get('art_method')
+          assert r.get('identity_difference',0) >= 0.06, r.get('identity_difference')
+          print('M2 Character Art QA:', r['checks'], 'checks passed')
+          PY
+
+      - name: Download Godot 4.6.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.3-stable_linux.x86_64
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --version
+
+      - name: Clean import and reject script errors
+        shell: bash
+        run: |
+          set -o pipefail
+          rm -rf .godot
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --editor --import --path . --quit 2>&1 | tee /tmp/m2-character-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/m2-character-import.log
+
+      - name: Run T1 runtime character contract
+        shell: bash
+        run: |
+          set -o pipefail
+          rm -f docs/characters/qa.json
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . res://tests/character_preview.tscn --quit-after 1800 2>&1 | tee /tmp/m2-character-runtime.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/m2-character-runtime.log
+          test -s docs/characters/qa.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open('docs/characters/qa.json',encoding='utf-8'))
+          assert r.get('failures') == [], r.get('failures')
+          assert r.get('checks',0) >= 50, r.get('checks')
+          assert r.get('frame_size') == [48,64], r.get('frame_size')
+          assert r.get('pivot') == [24,60], r.get('pivot')
+          print('M2 Character runtime QA:', r['checks'], 'checks passed')
+          PY
+
+      - name: Upload QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-character-art-qa
+          path: |
+            docs/characters/M2_CHARACTER_ART_QA.json
+            docs/characters/qa.json
+            /tmp/m2-character-art.log
+            /tmp/m2-character-import.log
+            /tmp/m2-character-runtime.log
+          if-no-files-found: ignore
