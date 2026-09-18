@@ -1,0 +1,159 @@
+name: M3 Weapon Progression QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - assets/nightreign/data/expedition.json
+      - src/nightreign/expedition/night_run.gd
+      - src/item.gd
+      - src/item_factory.gd
+      - src/actions/player_upgrade_weapon_action.gd
+      - scenes/ui/inventory_item.gd
+      - scenes/ui/inventory_item_list.gd
+      - scenes/ui/inventory_modal.gd
+      - scenes/game/game.gd
+      - tests/weapon_progression.gd
+      - tests/weapon_progression.tscn
+      - tests/weapon_archetypes.gd
+      - tests/weapon_archetypes.tscn
+      - tests/weapon_info.gd
+      - tests/weapon_info.tscn
+      - tests/expedition.gd
+      - tests/expedition.tscn
+      - .github/workflows/m3-weapon-progression-qa.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - assets/nightreign/data/expedition.json
+      - src/nightreign/expedition/night_run.gd
+      - src/item.gd
+      - src/item_factory.gd
+      - src/actions/player_upgrade_weapon_action.gd
+      - scenes/ui/inventory_item.gd
+      - scenes/ui/inventory_item_list.gd
+      - scenes/ui/inventory_modal.gd
+      - scenes/game/game.gd
+      - tests/weapon_progression.gd
+      - tests/weapon_progression.tscn
+      - tests/weapon_archetypes.gd
+      - tests/weapon_archetypes.tscn
+      - tests/weapon_info.gd
+      - tests/weapon_info.tscn
+      - tests/expedition.gd
+      - tests/expedition.tscn
+      - .github/workflows/m3-weapon-progression-qa.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  weapon-progression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Godot 4.6.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.3-stable_linux.x86_64
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --version
+
+      - name: Clean import and reject script errors
+        shell: bash
+        run: |
+          set -o pipefail
+          rm -rf .godot
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --editor --import --path . --quit 2>&1 | tee /tmp/m3-weapon-progression-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/m3-weapon-progression-import.log
+
+      - name: Run weapon rarity and upgrade contract
+        shell: bash
+        run: |
+          set -o pipefail
+          rm -f docs/M3_WEAPON_PROGRESSION_QA.json
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . res://tests/weapon_progression.tscn --quit-after 1800 2>&1 | tee /tmp/m3-weapon-progression.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/m3-weapon-progression.log
+          test -s docs/M3_WEAPON_PROGRESSION_QA.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open('docs/M3_WEAPON_PROGRESSION_QA.json',encoding='utf-8'))
+          assert r.get('failures') == [], r.get('failures')
+          assert r.get('checks',0) >= 650, r.get('checks')
+          assert r.get('rarities') == ['common','uncommon','rare','legendary'], r.get('rarities')
+          assert r.get('upgrade_costs') == [20,35,55,80,110], r.get('upgrade_costs')
+          assert r.get('upgrade_location') == 'Site of Grace', r.get('upgrade_location')
+          assert r.get('successful_upgrade_consumes_turn') is True
+          assert r.get('failed_upgrade_consumes_turn') is False
+          print('M3 Weapon Progression QA:', r['checks'], 'checks passed')
+          PY
+
+      - name: Run M1 weapon archetype regression
+        shell: bash
+        run: |
+          set -o pipefail
+          rm -f docs/WEAPON_QA.json
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . res://tests/weapon_archetypes.tscn --quit-after 1800 2>&1 | tee /tmp/m3-weapon-archetypes.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/m3-weapon-archetypes.log
+          test -s docs/WEAPON_QA.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open('docs/WEAPON_QA.json',encoding='utf-8'))
+          assert r.get('failures') == [], r.get('failures')
+          assert r.get('checks',0) >= 145, r.get('checks')
+          print('M1 weapon regression:', r['checks'], 'checks passed')
+          PY
+
+      - name: Run weapon info regression
+        shell: bash
+        run: |
+          set -o pipefail
+          rm -f docs/WEAPON_INFO_QA.json
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . res://tests/weapon_info.tscn --quit-after 1800 2>&1 | tee /tmp/m3-weapon-info.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/m3-weapon-info.log
+          test -s docs/WEAPON_INFO_QA.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open('docs/WEAPON_INFO_QA.json',encoding='utf-8'))
+          assert r.get('failures') == [], r.get('failures')
+          assert r.get('checks',0) >= 70, r.get('checks')
+          print('Weapon info regression:', r['checks'], 'checks passed')
+          PY
+
+      - name: Run full expedition regression
+        shell: bash
+        run: |
+          set -o pipefail
+          rm -f docs/M1_QA.json
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . res://tests/expedition.tscn --quit-after 1800 2>&1 | tee /tmp/m3-weapon-expedition.log
+          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" /tmp/m3-weapon-expedition.log
+          test -s docs/M1_QA.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open('docs/M1_QA.json',encoding='utf-8'))
+          assert r.get('failures') == [], r.get('failures')
+          print('Expedition regression:', r.get('checks',0), 'checks passed')
+          PY
+
+      - name: Upload QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3-weapon-progression-qa
+          path: |
+            docs/M3_WEAPON_PROGRESSION_QA.json
+            docs/WEAPON_QA.json
+            docs/WEAPON_INFO_QA.json
+            docs/M1_QA.json
+            /tmp/m3-weapon-progression-import.log
+            /tmp/m3-weapon-progression.log
+            /tmp/m3-weapon-archetypes.log
+            /tmp/m3-weapon-info.log
+            /tmp/m3-weapon-expedition.log
+          if-no-files-found: ignore
