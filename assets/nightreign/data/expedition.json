@@ -1,5 +1,5 @@
 {
-  "revision": "M3.1-weapon-progression",
+  "revision": "M3.2-affinity-buildup",
   "balance_note": "Turn-based adaptation values, not original-game numeric data.",
   "grades": {
     "E": 1,
@@ -73,7 +73,8 @@
       "base": 5,
       "scaling": {"STR": "D", "DEX": "A"},
       "sprite": "weapon-0",
-      "affinity": "physical"
+      "affinity": "physical",
+      "buildup": {"status": "blood_loss", "amount": 45}
     },
     "rapier": {
       "name": "Rapier",
@@ -101,22 +102,77 @@
       "base": 4,
       "scaling": {"FAI": "A"},
       "sprite": "weapon-0",
-      "affinity": "holy"
+      "affinity": "holy",
+      "buildup": {"status": "holy_stagger", "amount": 1}
     },
     "sacred_blade": {
       "name": "Sacred Blade Longsword",
       "base": 5,
       "scaling": {"STR": "D", "FAI": "B"},
       "sprite": "weapon-0",
-      "affinity": "holy"
+      "affinity": "holy",
+      "buildup": {"status": "holy_stagger", "amount": 1}
+    }
+  },
+  "status_buildup": {
+    "blood_loss": {
+      "label": "Blood Loss",
+      "proc_max_hp_fraction": 0.15,
+      "proc_min_damage": 6,
+      "color": "e05b5b"
+    },
+    "holy_stagger": {
+      "label": "Holy Break",
+      "proc_max_hp_fraction": 0.0,
+      "proc_min_damage": 0,
+      "color": "e8bd77"
     }
   },
   "enemies": {
-    "soldier": {"name": "Godrick Soldier", "template": "knight", "hp": 20, "damage": 5, "runes": 12},
-    "wolf": {"name": "Lone Wolf", "template": "coyote", "hp": 14, "damage": 4, "runes": 9},
-    "skeleton": {"name": "Skeletal Militiaman", "template": "skeleton", "hp": 22, "damage": 5, "runes": 12},
-    "gladius": {"name": "Gladius, Beast of Night", "template": "coyote", "hp": 150, "damage": 12, "runes": 150, "scales_with_floor": false},
-    "gladius_echo": {"name": "Gladius Hunting Echo", "template": "coyote", "hp": 28, "damage": 8, "runes": 0, "scales_with_floor": false}
+    "soldier": {
+      "name": "Godrick Soldier",
+      "template": "knight",
+      "hp": 20,
+      "damage": 5,
+      "runes": 12,
+      "status_thresholds": {"blood_loss": 100}
+    },
+    "wolf": {
+      "name": "Lone Wolf",
+      "template": "coyote",
+      "hp": 14,
+      "damage": 4,
+      "runes": 9,
+      "status_thresholds": {"blood_loss": 80}
+    },
+    "skeleton": {
+      "name": "Skeletal Militiaman",
+      "template": "skeleton",
+      "hp": 22,
+      "damage": 5,
+      "runes": 12,
+      "affinity_bonus": {"holy": 4},
+      "status_thresholds": {"blood_loss": 0}
+    },
+    "gladius": {
+      "name": "Gladius, Beast of Night",
+      "template": "coyote",
+      "hp": 150,
+      "damage": 12,
+      "runes": 150,
+      "scales_with_floor": false,
+      "affinity_bonus": {"holy": 5},
+      "status_thresholds": {"blood_loss": 120, "holy_stagger": 3}
+    },
+    "gladius_echo": {
+      "name": "Gladius Hunting Echo",
+      "template": "coyote",
+      "hp": 28,
+      "damage": 8,
+      "runes": 0,
+      "scales_with_floor": false,
+      "status_thresholds": {"blood_loss": 60}
+    }
   },
   "night_tide": {
     "thresholds": [72, 104],

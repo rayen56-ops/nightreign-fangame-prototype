@@ -47,6 +47,7 @@ func _scaled_result(base: Combat.MeleeAttackResult, defender: Monster, multiplie
 	var scaled := Combat.MeleeAttackResult.new()
 	scaled.damage = NightRun.protect_damage(defender, maxi(1, roundi(float(base.damage) * multiplier)))
 	scaled.damage_type = base.damage_type
+	scaled.affinity = base.affinity
 	scaled.killed = scaled.damage >= defender.hp
 	return scaled
 
@@ -79,6 +80,16 @@ func _apply_resolved_hit(
 		result.add_effect(hit)
 		result.add_effect(
 			StatusPopupEffect.new(target_monster, target_pos, str(combat_result.damage), hit.feedback_color())
+		)
+
+	for event: Dictionary in combat_result.special_events:
+		result.add_effect(
+			StatusPopupEffect.new(
+				target_monster,
+				target_pos,
+				NightRun.status_event_text(event),
+				NightRun.status_event_color(event)
+			)
 		)
 
 	if combat_result.killed:
@@ -134,6 +145,8 @@ func _execute_player_pattern(
 			if target_monster.is_dead or map.find_monster_position(target_monster) == Utils.INVALID_POS:
 				break
 			var burst_result := _scaled_result(base, target_monster, hit_multiplier)
+			if i == 0:
+				burst_result.special_events = base.special_events.duplicate(true)
 			_apply_resolved_hit(map, result, current_pos, target_pos, target_monster, burst_result)
 			hits += 1
 		result.message = "Dagger burst lands %d hit%s." % [hits, "" if hits == 1 else "s"]

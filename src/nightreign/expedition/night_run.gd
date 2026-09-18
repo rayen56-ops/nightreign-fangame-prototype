@@ -317,6 +317,130 @@ func _damage_type_from_name(type_name: String) -> int:
 	push_error("Unsupported Nightreign damage type: %s" % type_name)
 	return Damage.Type.BLUNT
 
+func weapon_affinity(item: Item) -> StringName:
+	if item == null or not item.has_meta("night_weapon"):
+		return &"physical"
+	return StringName(String(item.get_meta("night_affinity", "physical")))
+
+
+func weapon_buildup(item: Item) -> Dictionary:
+	if item == null or not item.has_meta("night_weapon"):
+		return {}
+	var entry: Dictionary = data.weapons[String(item.get_meta("night_weapon"))]
+	return (entry.get("buildup", {}) as Dictionary).duplicate(true)
+
+
+func status_buildup_config(status_id: String) -> Dictionary:
+	if not data.status_buildup.has(status_id):
+		return {}
+	return (data.status_buildup[status_id] as Dictionary).duplicate(true)
+
+
+func enemy_affinity_bonus(target: Monster, affinity: StringName) -> int:
+	if target == null or not target.has_meta("night_enemy"):
+		return 0
+	var entry: Dictionary = data.enemies[String(target.get_meta("night_enemy"))]
+	var bonuses: Dictionary = entry.get("affinity_bonus", {})
+	return int(bonuses.get(String(affinity), 0))
+
+
+func status_buildup_threshold(target: Monster, status_id: String) -> int:
+	if target == null or not target.has_meta("night_enemy"):
+		return 0
+	var entry: Dictionary = data.enemies[String(target.get_meta("night_enemy"))]
+	var thresholds: Dictionary = entry.get("status_thresholds", {})
+	return maxi(0, int(thresholds.get(status_id, 0)))
+
+
+func status_buildup_value(target: Monster, status_id: String) -> int:
+	if target == null:
+		return 0
+	return maxi(0, int(target.get_meta("night_buildup_" + status_id, 0)))
+
+
+func _status_proc_damage(target: Monster, status_id: String) -> int:
+	var cfg := status_buildup_config(status_id)
+	if cfg.is_empty():
+		return 0
+	var fraction := float(cfg.get("proc_max_hp_fraction", 0.0))
+	var minimum := maxi(0, int(cfg.get("proc_min_damage", 0)))
+	return maxi(minimum, roundi(float(target.max_hp) * fraction))
+
+
+func resolve_weapon_traits(item: Item, target: Monster) -> Dictionary:
+	var affinity := weapon_affinity(item)
+	var affinity_bonus := enemy_affinity_bonus(target, affinity)
+	var bonus_damage := affinity_bonus
+	var events: Array[Dictionary] = []
+	var buildup := weapon_buildup(item)
+	if buildup.is_empty():
+		return {
+			"affinity": affinity,
+			"affinity_bonus": affinity_bonus,
+			"bonus_damage": bonus_damage,
+			"events": events,
+		}
+
+	var status_id := String(buildup.get("status", ""))
+	var amount := maxi(0, int(buildup.get("amount", 0)))
+	var threshold := status_buildup_threshold(target, status_id)
+	if status_id.is_empty() or amount <= 0 or threshold <= 0:
+		return {
+			"affinity": affinity,
+			"affinity_bonus": affinity_bonus,
+			"bonus_damage": bonus_damage,
+			"events": events,
+		}
+
+	var meter_before := status_buildup_value(target, status_id)
+	var meter_after := meter_before + amount
+	var triggered := meter_after >= threshold
+	var proc_damage := 0
+	if triggered:
+		meter_after = 0
+		proc_damage = _status_proc_damage(target, status_id)
+		bonus_damage += proc_damage
+		if status_id == "holy_stagger":
+			target.set_meta("stagger", 1)
+	target.set_meta("night_buildup_" + status_id, meter_after)
+
+	var cfg := status_buildup_config(status_id)
+	events.append({
+		"status": status_id,
+		"label": String(cfg.get("label", status_id.capitalize())),
+		"amount": amount,
+		"threshold": threshold,
+		"meter_before": meter_before,
+		"meter_after": meter_after,
+		"triggered": triggered,
+		"proc_damage": proc_damage,
+		"color": Color(String(cfg.get("color", "ffffff"))),
+	})
+	return {
+		"affinity": affinity,
+		"affinity_bonus": affinity_bonus,
+		"bonus_damage": bonus_damage,
+		"events": events,
+	}
+
+
+func status_event_text(event: Dictionary) -> String:
+	var label := String(event.get("label", "Status"))
+	if bool(event.get("triggered", false)):
+		var proc_damage := int(event.get("proc_damage", 0))
+		return "%s +%d" % [label, proc_damage] if proc_damage > 0 else label
+	return "%s %d/%d" % [
+		label,
+		int(event.get("meter_after", 0)),
+		int(event.get("threshold", 0)),
+	]
+
+
+func status_event_color(event: Dictionary) -> Color:
+	var color: Variant = event.get("color", Color.WHITE)
+	return color as Color if color is Color else Color(String(color))
+
+
 func make_weapon(id: String, rarity_id: String = "common", upgrade: int = 0) -> Item:
 	var entry: Dictionary = data.weapons[id]
 	var archetype_id := weapon_archetype_id(id)
@@ -365,7 +489,15 @@ func weapon_description(item: Item) -> String:
 	for stat: String in entry.scaling:
 		parts.append(stat + " " + entry.scaling[stat])
 	var profile: Dictionary = weapon_archetype(String(item.get_meta("night_weapon")))
-	return "Rarity: %s\nUpgrade: +%d/%d\nArchetype: %s\nScaling: %s\nAffinity: %s\nYour attack: %d\nNo stat requirement." % [weapon_rarity_label(item), weapon_upgrade_level(item), weapon_upgrade_cap(item), profile.label, ", ".join(parts), entry.affinity, weapon_damage(item)]
+	var buildup_text := ""
+	var buildup: Dictionary = entry.get("buildup", {})
+	if not buildup.is_empty():
+		var cfg := status_buildup_config(String(buildup.get("status", "")))
+		buildup_text = "\nBuildup: %s +%d/action" % [
+			String(cfg.get("label", String(buildup.get("status", "")).capitalize())),
+			int(buildup.get("amount", 0)),
+		]
+	return "Rarity: %s\nUpgrade: +%d/%d\nArchetype: %s\nScaling: %s\nAffinity: %s%s\nYour attack: %d\nNo stat requirement." % [weapon_rarity_label(item), weapon_upgrade_level(item), weapon_upgrade_cap(item), profile.label, ", ".join(parts), entry.affinity, buildup_text, weapon_damage(item)]
 
 func spawn_enemy(id: String, map: Map, pos: Vector2i, depth: int = -1, force_elite: bool = false) -> Monster:
 	var entry: Dictionary = data.enemies[id]
@@ -692,14 +824,11 @@ func resolve_melee(attacker: Monster, defender: Monster) -> Combat.MeleeAttackRe
 		var weapon := attacker.equipment.get_equipped_item(Equipment.Slot.MELEE)
 		amount = weapon_damage(weapon)
 		resolved_damage_type = weapon_damage_type(weapon)
+		var traits := resolve_weapon_traits(weapon, defender)
+		result.affinity = traits.get("affinity", &"physical")
+		result.special_events = traits.get("events", [])
+		amount += int(traits.get("bonus_damage", 0))
 		charge = mini(100, charge + 12)
-		if defender.get_meta("night_enemy", "") == "gladius" and weapon and weapon.has_meta("night_weapon"):
-			if data.weapons[weapon.get_meta("night_weapon")].affinity == "holy":
-				amount += 5
-				var buildup := int(defender.get_meta("holy_buildup", 0)) + 1
-				defender.set_meta("holy_buildup", buildup % 3)
-				if buildup >= 3:
-					defender.set_meta("stagger", 1)
 	elif attacker.has_meta("night_enemy"):
 		amount = int(attacker.get_meta("night_damage", data.enemies[attacker.get_meta("night_enemy")].damage))
 	elif attacker.has_meta("family"):

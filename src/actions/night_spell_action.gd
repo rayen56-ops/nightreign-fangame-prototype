@@ -93,6 +93,15 @@ func _execute(map: Map, result: ActionResult) -> bool:
 	var hit := HitEffect.new(hit_monster, direction, impact_pos, actor, damage > 0, damage, affinity)
 	result.add_effect(hit)
 	result.add_effect(StatusPopupEffect.new(hit_monster, impact_pos, str(damage), hit.feedback_color()))
+	for event: Dictionary in base.special_events:
+		result.add_effect(
+			StatusPopupEffect.new(
+				hit_monster,
+				impact_pos,
+				NightRun.status_event_text(event),
+				NightRun.status_event_color(event)
+			)
+		)
 
 	if hit_monster.hp <= 0:
 		hit_monster.is_dead = true

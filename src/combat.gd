@@ -21,14 +21,18 @@ class MeleeAttackResult:
 	var damage_type: Damage.Type = Damage.Type.BLUNT
 	var killed: bool = false
 	var missed: bool = false
+	var affinity: StringName = &"physical"
+	var special_events: Array[Dictionary] = []
 
 	func _to_string() -> String:
 		return (
-			"MeleeAttackResult(damage=%d, killed=%s, missed=%s)"
+			"MeleeAttackResult(damage=%d, killed=%s, missed=%s, affinity=%s, special_events=%s)"
 			% [
 				damage,
 				killed,
 				missed,
+				affinity,
+				special_events,
 			]
 		)
 
