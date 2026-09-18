@@ -135,7 +135,7 @@ func _get_nightreign_weapon_info() -> String:
 	var cost := NightRun.weapon_upgrade_cost(self)
 	lines.append("Rarity: %s (+%d damage)" % [NightRun.weapon_rarity_label(self), NightRun.weapon_rarity_bonus(self)])
 	lines.append("Upgrade: +%d / +%d" % [upgrade, cap])
-	lines.append("Next upgrade: MAX" if cost < 0 else "%d runes at a Site of Grace" % cost)
+	lines.append("Next upgrade: %s" % ("MAX" if cost < 0 else "%d runes at a Site of Grace" % cost))
 	lines.append("Archetype: %s" % String(profile.get("label", "Weapon")))
 	lines.append("Attack: %s" % _nightreign_attack_summary(profile))
 	if profile.has("cast"):
