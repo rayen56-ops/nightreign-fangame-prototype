@@ -54,9 +54,11 @@ func run() -> void:
 	check(hunt_fire > 0.5 and hunt_fire < 0.8, "hunt phase carries visible but controlled flame")
 
 	var contract := visual.presentation_contract()
-	check(contract.grid_occupancy == Vector2i.ONE, "oversized boss art never changes one-cell gameplay occupancy")
-	check((contract.visual_bounds as Vector2i).x > Constants.TILE_SIZE, "boss art is allowed to overhang the 16px grid cell")
-	check((contract.visual_bounds as Vector2i).y > Constants.TILE_SIZE, "boss silhouette gains vertical presence beyond one tile")
+	var main_bounds: Vector2i = contract.get("visual_bounds", Vector2i.ZERO)
+	var main_occupancy: Vector2i = contract.get("grid_occupancy", Vector2i.ZERO)
+	check(main_occupancy == Vector2i.ONE, "oversized boss art never changes one-cell gameplay occupancy")
+	check(main_bounds.x > Constants.TILE_SIZE, "boss art is allowed to overhang the 16px grid cell")
+	check(main_bounds.y > Constants.TILE_SIZE, "boss silhouette gains vertical presence beyond one tile")
 
 	NightRun.telegraphs[gladius.get_instance_id()] = [Vector2i(9, 6), Vector2i(9, 7)]
 	check(visual.current_state() == NightGladiusVisual.STATE_TELEGRAPH, "real flame-sweep telegraph drives boss presentation")
@@ -103,8 +105,11 @@ func run() -> void:
 	check(echo_visual.head_count() == 1, "split echo reads as one hunting head rather than another full boss")
 	check(not echo_visual.chain_spread(), "echo never advertises the main split-chain state")
 	check(echo_visual.flame_intensity() < hunt_fire, "echo flame is subordinate to the main body")
-	check((echo_visual.presentation_contract().visual_bounds as Vector2i).x < (contract.visual_bounds as Vector2i).x, "echo silhouette is smaller than the main boss")
-	check(echo_visual.presentation_contract().grid_occupancy == Vector2i.ONE, "echo also remains one gameplay cell")
+	var echo_contract := echo_visual.presentation_contract()
+	var echo_bounds: Vector2i = echo_contract.get("visual_bounds", Vector2i.ZERO)
+	var echo_occupancy: Vector2i = echo_contract.get("grid_occupancy", Vector2i.ZERO)
+	check(echo_bounds.x < main_bounds.x, "echo silhouette is smaller than the main boss")
+	check(echo_occupancy == Vector2i.ONE, "echo also remains one gameplay cell")
 	check(not echo_actor.character.visible, "echo borrowed coyote sprite is hidden")
 	echo_actor.free()
 	map.get_cell(echo_pos).monster = null
