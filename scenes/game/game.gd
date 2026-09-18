@@ -65,6 +65,11 @@ func _ready() -> void:
 					var action := PlayerUseItemAction.new(item)
 					_handle_player_action(action)
 			)
+			inventory.upgrade_requested.connect(
+				func(item: Item) -> void:
+					var action := PlayerUpgradeWeaponAction.new(item)
+					_handle_player_action(action)
+			)
 			inventory.reparent_requested.connect(
 				func(action: PlayerReparentItemAction) -> void: _handle_player_action(action)
 			)
