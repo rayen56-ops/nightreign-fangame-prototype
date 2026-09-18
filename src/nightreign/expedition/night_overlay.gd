@@ -6,18 +6,6 @@ var attack_preview: Dictionary = {}
 var attack_preview_target: Vector2i = Utils.INVALID_POS
 var controller_driver: NightControllerDriver
 
-func _hud_font() -> SystemFont:
-	var font := SystemFont.new()
-	font.font_names = PackedStringArray([
-		"Microsoft JhengHei UI",
-		"PingFang TC",
-		"Noto Sans CJK TC",
-		"Noto Sans TC",
-		"sans-serif",
-	])
-	font.allow_system_fallback = true
-	return font
-
 func _ready() -> void:
 	z_index = -1
 	controller_driver = preload("res://src/nightreign/input/night_controller_driver.gd").new()
@@ -31,7 +19,7 @@ func _ready() -> void:
 	backing.color = Color(0.04,0.03,0.07,0.93)
 	backing.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(backing)
-	var hud_font := _hud_font()
+	var hud_font := NightUiFont.hud_font()
 	boss_bar = Label.new()
 	boss_bar.position = Vector2(180, 279)
 	boss_bar.add_theme_font_override("font", hud_font)
