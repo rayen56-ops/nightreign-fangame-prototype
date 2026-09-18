@@ -424,6 +424,23 @@ func resolve_weapon_traits(item: Item, target: Monster) -> Dictionary:
 	}
 
 
+func status_event_text(event: Dictionary) -> String:
+	var label := String(event.get("label", "Status"))
+	if bool(event.get("triggered", false)):
+		var proc_damage := int(event.get("proc_damage", 0))
+		return "%s +%d" % [label, proc_damage] if proc_damage > 0 else label
+	return "%s %d/%d" % [
+		label,
+		int(event.get("meter_after", 0)),
+		int(event.get("threshold", 0)),
+	]
+
+
+func status_event_color(event: Dictionary) -> Color:
+	var color: Variant = event.get("color", Color.WHITE)
+	return color as Color if color is Color else Color(String(color))
+
+
 func make_weapon(id: String, rarity_id: String = "common", upgrade: int = 0) -> Item:
 	var entry: Dictionary = data.weapons[id]
 	var archetype_id := weapon_archetype_id(id)
@@ -472,7 +489,15 @@ func weapon_description(item: Item) -> String:
 	for stat: String in entry.scaling:
 		parts.append(stat + " " + entry.scaling[stat])
 	var profile: Dictionary = weapon_archetype(String(item.get_meta("night_weapon")))
-	return "Rarity: %s\nUpgrade: +%d/%d\nArchetype: %s\nScaling: %s\nAffinity: %s\nYour attack: %d\nNo stat requirement." % [weapon_rarity_label(item), weapon_upgrade_level(item), weapon_upgrade_cap(item), profile.label, ", ".join(parts), entry.affinity, weapon_damage(item)]
+	var buildup_text := ""
+	var buildup: Dictionary = entry.get("buildup", {})
+	if not buildup.is_empty():
+		var cfg := status_buildup_config(String(buildup.get("status", "")))
+		buildup_text = "\nBuildup: %s +%d/action" % [
+			String(cfg.get("label", String(buildup.get("status", "")).capitalize())),
+			int(buildup.get("amount", 0)),
+		]
+	return "Rarity: %s\nUpgrade: +%d/%d\nArchetype: %s\nScaling: %s\nAffinity: %s%s\nYour attack: %d\nNo stat requirement." % [weapon_rarity_label(item), weapon_upgrade_level(item), weapon_upgrade_cap(item), profile.label, ", ".join(parts), entry.affinity, buildup_text, weapon_damage(item)]
 
 func spawn_enemy(id: String, map: Map, pos: Vector2i, depth: int = -1, force_elite: bool = false) -> Monster:
 	var entry: Dictionary = data.enemies[id]
