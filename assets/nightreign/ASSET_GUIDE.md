@@ -22,7 +22,7 @@ Melee animation timing is semantic rather than decorative:
 - Revenant: Windup -> Strum -> Release -> Recover
 After Recover, the visual controller returns to Idle. Gameplay resolution remains owned by the existing action system.
 
-`art/build_t1_character_atlas.py` materializes reproducible integration atlases from the current character identity sprites. These atlases prove sizing, anchoring, direction and animation plumbing; they are not final authored art. Final sprite sheets may replace `t1-atlas.png` as long as this contract and animation metadata are preserved.
+`art/build_t1_character_atlas.py` now materializes the M2.11 directional pixel-art pass from explicit character structure rather than scaling one identity sprite into fake angles. Wylder and Revenant each define front, side, diagonal and back construction, then mirror only the matching left/right views. Their equipment and silhouettes are character-specific: Wylder uses armor, cloak, grappling-claw bracer and greatsword language; Revenant uses long hair, pale robe and spirit-focus/lyre language.\n\n`art/check_m2_character_art.py` verifies that canonical directions are structurally distinct, attack and move phases change silhouette, the feet remain near the shared pivot, the two characters do not collapse to one body shape, and the committed PNG atlases exactly match the reproducible builder. Future hand-polish may replace these generated frames as long as the same runtime contract and or stronger visual QA remain true.
 
 Change atlas, frame size, pivot and animation metadata through `NightreignCharacterVisual` resources.
 Do not edit world.gd to replace character art. The visual controller never applies actions.
