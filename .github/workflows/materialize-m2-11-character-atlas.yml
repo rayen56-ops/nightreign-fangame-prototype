@@ -1,0 +1,55 @@
+name: Materialize M2.11 Character Atlases
+
+on:
+  push:
+    branches: [m2-11-character-art]
+    paths:
+      - art/build_t1_character_atlas.py
+      - .github/workflows/materialize-m2-11-character-atlas.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-atlases:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Pillow
+        run: python3 -m pip install --disable-pip-version-check pillow
+      - name: Build directional 48x64 atlases
+        run: python3 art/build_t1_character_atlas.py
+      - name: Validate dimensions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          for character in ("wylder","revenant"):
+              path=Path("assets/nightreign/characters")/character/"t1-atlas.png"
+              image=Image.open(path).convert("RGBA")
+              assert image.size==(192,2560), (character,image.size)
+              assert image.getchannel("A").getbbox() is not None
+              assert path.stat().st_size > 10000
+              print(character, image.size, path.stat().st_size)
+          PY
+      - name: Commit materialized atlases
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/nightreign/characters/wylder/t1-atlas.png
+          git add assets/nightreign/characters/revenant/t1-atlas.png
+          if git diff --cached --quiet; then
+            echo "Atlases are already current."
+            exit 0
+          fi
+          git commit -m "M2.11: rematerialize stronger directional atlases"
+          git push
