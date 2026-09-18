@@ -147,6 +147,16 @@ func _get_nightreign_weapon_info() -> String:
 		scaling_parts.append("%s %s" % [stat, String(entry.scaling[stat])])
 	lines.append("Scaling: %s" % ", ".join(scaling_parts))
 	lines.append("Affinity: %s" % String(entry.affinity).capitalize())
+	var buildup: Dictionary = entry.get("buildup", {})
+	if not buildup.is_empty():
+		var cfg := NightRun.status_buildup_config(String(buildup.get("status", "")))
+		lines.append(
+			"Buildup: %s +%d/action"
+			% [
+				String(cfg.get("label", String(buildup.get("status", "")).capitalize())),
+				int(buildup.get("amount", 0)),
+			]
+		)
 	lines.append("Current damage: %d (deterministic)" % NightRun.weapon_damage(self))
 	lines.append("Stat requirement: None")
 	return "\n".join(lines)
