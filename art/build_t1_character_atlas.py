@@ -98,6 +98,77 @@ def _with_offset(points, dx: int, dy: int):
     return [(x + dx, y + dy) for x, y in points]
 
 
+def _wylder_direction_silhouette(
+    draw: ImageDraw.ImageDraw, direction: str, dx: int, dy: int, animation: str
+) -> None:
+    """Directional overhangs that encode equipment depth in the outer silhouette."""
+    if animation == "death":
+        return
+    if direction == "S":
+        # Front view: cloak wings and the claw arm open away from the torso.
+        _poly(draw, _with_offset([(15, 38), (10, 41), (11, 51), (16, 48)], dx, dy), WY["cloak_dark"])
+        _poly(draw, _with_offset([(32, 38), (38, 42), (37, 50), (32, 47)], dx, dy), WY["cloak_dark"])
+        _rect(draw, (9 + dx, 45 + dy, 13 + dx, 51 + dy), WY["claw"])
+    elif direction == "SE":
+        # Three-quarter front: one shoulder/arm advances, the rear cloak trails.
+        _poly(draw, _with_offset([(17, 39), (11, 43), (10, 53), (17, 49)], dx, dy), WY["cloak_dark"])
+        _poly(draw, _with_offset([(31, 36), (38, 38), (42, 45), (37, 49), (31, 45)], dx, dy), WY["armor_dark"])
+        _rect(draw, (38 + dx, 43 + dy, 43 + dx, 49 + dy), WY["claw"])
+    elif direction == "E":
+        # Pure side: compressed torso with a long rear sword/scabbard profile.
+        _poly(draw, _with_offset([(18, 37), (13, 40), (14, 52), (20, 49)], dx, dy), WY["cloak_dark"])
+        _rect(draw, (32 + dx, 33 + dy, 38 + dx, 53 + dy), WY["outline"])
+        _rect(draw, (34 + dx, 34 + dy, 37 + dx, 52 + dy), WY["metal"])
+        _poly(draw, _with_offset([(29, 36), (37, 38), (41, 44), (36, 47), (30, 43)], dx, dy), WY["armor"])
+    elif direction == "NE":
+        # Three-quarter back: sword rides high while the far cloak corner trails left.
+        _poly(draw, _with_offset([(17, 37), (9, 42), (11, 54), (19, 50)], dx, dy), WY["cloak_dark"])
+        _rect(draw, (31 + dx, 25 + dy, 37 + dx, 48 + dy), WY["outline"])
+        _line(draw, [(34 + dx, 26 + dy), (34 + dx, 49 + dy)], WY["metal"], 2)
+        _poly(draw, _with_offset([(29, 35), (38, 37), (40, 43), (34, 46)], dx, dy), WY["armor_dark"])
+    elif direction == "N":
+        # Back view: broad mantle and split cloak tails dominate instead of frontal arms.
+        _poly(draw, _with_offset([(14, 34), (10, 39), (12, 50), (18, 47), (20, 36)], dx, dy), WY["cloak_dark"])
+        _poly(draw, _with_offset([(29, 36), (36, 39), (38, 50), (31, 47)], dx, dy), WY["cloak_dark"])
+        _poly(draw, _with_offset([(15, 49), (11, 58), (19, 56), (23, 49)], dx, dy), WY["outline"])
+        _poly(draw, _with_offset([(26, 49), (31, 58), (38, 55), (33, 48)], dx, dy), WY["outline"])
+
+
+def _revenant_direction_silhouette(
+    draw: ImageDraw.ImageDraw, direction: str, dx: int, dy: int, animation: str
+) -> None:
+    """Long hair, sleeves and robe hem define direction without relying on color."""
+    if animation == "death":
+        return
+    if direction == "S":
+        # Front: symmetric bell sleeves and two robe points.
+        _poly(draw, _with_offset([(18, 37), (10, 41), (9, 50), (15, 48), (20, 42)], dx, dy), RV["robe"])
+        _poly(draw, _with_offset([(29, 37), (38, 41), (39, 50), (33, 48), (28, 42)], dx, dy), RV["robe"])
+        _poly(draw, _with_offset([(17, 53), (13, 60), (21, 58), (24, 53)], dx, dy), RV["robe_shadow"])
+        _poly(draw, _with_offset([(25, 53), (29, 60), (36, 58), (31, 52)], dx, dy), RV["robe_shadow"])
+    elif direction == "SE":
+        # Three-quarter front: near sleeve opens and hair streams behind the far shoulder.
+        _poly(draw, _with_offset([(18, 30), (10, 34), (11, 49), (18, 45)], dx, dy), RV["hair"])
+        _poly(draw, _with_offset([(29, 37), (38, 39), (43, 48), (37, 53), (30, 46)], dx, dy), RV["robe"])
+        _ellipse(draw, (36 + dx, 44 + dy, 43 + dx, 52 + dy), outline=RV["gold"], width=2)
+    elif direction == "E":
+        # Side: a narrow body with one long curtain of hair and a projecting sleeve.
+        _poly(draw, _with_offset([(19, 27), (13, 30), (12, 54), (19, 50), (22, 35)], dx, dy), RV["hair"])
+        _poly(draw, _with_offset([(29, 37), (39, 39), (43, 46), (39, 51), (30, 45)], dx, dy), RV["robe"])
+        _poly(draw, _with_offset([(24, 51), (19, 60), (29, 58), (33, 51)], dx, dy), RV["robe_shadow"])
+    elif direction == "NE":
+        # Three-quarter back: hair mass trails left, far sleeve and focus sit behind.
+        _poly(draw, _with_offset([(18, 26), (9, 31), (10, 53), (18, 49), (22, 35)], dx, dy), RV["hair"])
+        _poly(draw, _with_offset([(29, 37), (38, 40), (40, 50), (34, 52), (29, 45)], dx, dy), RV["robe_shadow"])
+        _ellipse(draw, (34 + dx, 43 + dy, 41 + dx, 51 + dy), outline=RV["gold"], width=2)
+    elif direction == "N":
+        # Back: hair becomes a wide cape and the robe hem forks under it.
+        _poly(draw, _with_offset([(16, 25), (10, 32), (9, 51), (16, 56), (23, 50), (24, 31)], dx, dy), RV["hair"])
+        _poly(draw, _with_offset([(24, 31), (31, 25), (38, 32), (39, 51), (32, 56), (25, 50)], dx, dy), RV["hair"])
+        _poly(draw, _with_offset([(17, 50), (11, 59), (21, 58), (24, 52)], dx, dy), RV["robe_shadow"])
+        _poly(draw, _with_offset([(25, 52), (29, 59), (38, 57), (32, 49)], dx, dy), RV["robe_shadow"])
+
+
 def _wylder_body(direction: str, animation: str, index: int) -> Image.Image:
     direction, mirror = _canonical(direction)
     dx, dy, stride = _motion(animation, index)
@@ -212,6 +283,8 @@ def _wylder_body(direction: str, animation: str, index: int) -> Image.Image:
             ad.arc(box, start=start, end=end, fill=(188, 205, 214, 150), width=2)
             img.alpha_composite(arc)
 
+    _wylder_direction_silhouette(d, direction, dx, dy, animation)
+
     if animation == "hit":
         flash = Image.new("RGBA", img.size, (215, 230, 235, 0))
         flash.putalpha(img.getchannel("A").point(lambda a: int(a * (0.18 if index == 0 else 0.08))))
@@ -300,6 +373,8 @@ def _revenant_body(direction: str, animation: str, index: int) -> Image.Image:
         hip_x = 30 + dx if not side else 31 + dx
         _ellipse(d, (hip_x - 3, 42 + dy, hip_x + 3, 49 + dy), outline=RV["gold"], width=1)
         _line(d, [(hip_x, 43 + dy), (hip_x, 48 + dy)], RV["gold_hi"], 1)
+
+    _revenant_direction_silhouette(d, direction, dx, dy, animation)
 
     if animation == "hit":
         flash = Image.new("RGBA", img.size, (224, 231, 245, 0))
