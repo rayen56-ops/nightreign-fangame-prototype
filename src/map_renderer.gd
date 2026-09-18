@@ -10,6 +10,7 @@ const VISION_LAYER_MODULATE := Color(0.0, 0.0, 0.0, 0.4)
 @export var god_mode: bool = false
 
 var obstacle_layer: TileMapLayer
+var night_environment_layer: NightEnvironmentOverlay
 var hints_layer: TileMapLayer
 var terrain_layer: TileMapLayer
 var decoration_layer: TileMapLayer
@@ -55,6 +56,8 @@ func initialize_tile_layers() -> void:
 		remove_child(highlight_layer)
 	if obstacle_layer:
 		remove_child(obstacle_layer)
+	if night_environment_layer:
+		remove_child(night_environment_layer)
 	if item_layer:
 		remove_child(item_layer)
 	if item_stack_layer1:
@@ -102,6 +105,11 @@ func initialize_tile_layers() -> void:
 	add_child(obstacle)
 	obstacle_layer = obstacle
 
+	var night_environment := NightEnvironmentOverlay.new()
+	night_environment.name = "NightEnvironment"
+	add_child(night_environment)
+	night_environment_layer = night_environment
+
 	var item := TileMapLayer.new()
 	item.name = "Items"
 	item.tile_set = item_tileset
@@ -140,6 +148,7 @@ func render_map(map: Map) -> void:
 	render_ground(map)
 	render_decorations(map)
 	render_obstacles(map)
+	render_night_environment(map)
 	render_items(map)
 	render_vision(map)
 	render_area_effects(map)
@@ -162,6 +171,8 @@ func clear_layers() -> void:
 	terrain_layer.clear()
 	decoration_layer.clear()
 	obstacle_layer.clear()
+	if night_environment_layer:
+		night_environment_layer.clear_map()
 	item_layer.clear()
 	item_stack_layer1.clear()
 	item_stack_layer2.clear()
@@ -197,30 +208,9 @@ func render_ground(map: Map) -> void:
 			var tile: StringName
 
 			match terrain.type:
-				Terrain.Type.DUNGEON_FLOOR:
-					if terrain_mode:
-						match cell.area_type:
-							MapCell.Type.ROOM:
-								tile = &"floor-7-nsew"
-							MapCell.Type.CORRIDOR:
-								tile = &"floor-7-nsew"
-							_:  # NONE or unknown
-								tile = &"floor-7-nsew"
-					else:
-						# Other tilesets used to have lots of variations of floor tiles,
-						# but now we just have one.
-						match cell.decoration_type:
-							DecType.FLOOR_VARIATION_1:
-								tile = &"floor-7-nsew"
-							DecType.FLOOR_VARIATION_2:
-								tile = &"floor-7-nsew"
-							DecType.FLOOR_VARIATION_3:
-								tile = &"floor-7-nsew"
-							DecType.FLOOR_VARIATION_4:
-								tile = &"floor-7-nsew"
-							_:  # normal floor
-								tile = &"floor-7-nsew"
-				Terrain.Type.DUNGEON_WALL:
+				Terrain.Type.DUNGEON_FLOOR, 				Terrain.Type.DUNGEON_FLOOR_GRATE, 				Terrain.Type.DUNGEON_HOLE, 				Terrain.Type.DUNGEON_DOOR_OPEN, 				Terrain.Type.DUNGEON_DOOR_CLOSED:
+					tile = NightEnvironmentVisuals.ground_tile_for(terrain.type)
+				Terrain.Type.DUNGEON_WALL, Terrain.Type.DUNGEON_WALL_VENTED:
 					if terrain_mode:
 						tile = &"wall-5-lone"
 					else:
@@ -372,7 +362,7 @@ func get_wall_tile(pos: Vector2i, map: Map) -> StringName:
 
 
 func is_wall_like(terrain: Terrain) -> bool:
-	return terrain.type == Terrain.Type.DUNGEON_WALL
+	return terrain.type in [Terrain.Type.DUNGEON_WALL, Terrain.Type.DUNGEON_WALL_VENTED]
 
 
 func get_obstacle_tile(obstacle: Obstacle) -> StringName:
@@ -447,6 +437,12 @@ func render_obstacles(map: Map) -> void:
 									obstacle_layer.set_cell(
 										top_pos, 0, WorldTiles.get_coords(top_tile)
 									)
+
+
+func render_night_environment(map: Map) -> void:
+	if terrain_mode or night_environment_layer == null:
+		return
+	night_environment_layer.set_map(map)
 
 
 func render_items(map: Map) -> void:
