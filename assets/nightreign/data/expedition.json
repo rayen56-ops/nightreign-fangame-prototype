@@ -1,5 +1,5 @@
 {
-  "revision": "T0.1-core-20f-M1.4-weapons",
+  "revision": "M3.1-weapon-progression",
   "balance_note": "Turn-based adaptation values, not original-game numeric data.",
   "grades": {
     "E": 1,
@@ -125,6 +125,62 @@
     "safe_radius": [8, 5],
     "damage": [5, 9],
     "note": "Turn-based adaptation. Floors 1-19 only; later floors reach encroachment sooner."
+  },
+  "weapon_progression": {
+    "rarities": {
+      "common": {
+        "label": "Common",
+        "damage_bonus": 0,
+        "max_upgrade": 2,
+        "color": "b9c1ca"
+      },
+      "uncommon": {
+        "label": "Uncommon",
+        "damage_bonus": 1,
+        "max_upgrade": 3,
+        "color": "75c887"
+      },
+      "rare": {
+        "label": "Rare",
+        "damage_bonus": 2,
+        "max_upgrade": 4,
+        "color": "72a7e8"
+      },
+      "legendary": {
+        "label": "Legendary",
+        "damage_bonus": 3,
+        "max_upgrade": 5,
+        "color": "e0a94b"
+      }
+    },
+    "drop_bands": [
+      {
+        "from_floor": 1,
+        "weights": {"common": 80, "uncommon": 20},
+        "upgrade_min": 0,
+        "upgrade_max": 0
+      },
+      {
+        "from_floor": 5,
+        "weights": {"common": 50, "uncommon": 40, "rare": 10},
+        "upgrade_min": 0,
+        "upgrade_max": 1
+      },
+      {
+        "from_floor": 10,
+        "weights": {"common": 20, "uncommon": 45, "rare": 30, "legendary": 5},
+        "upgrade_min": 0,
+        "upgrade_max": 2
+      },
+      {
+        "from_floor": 15,
+        "weights": {"uncommon": 30, "rare": 50, "legendary": 20},
+        "upgrade_min": 1,
+        "upgrade_max": 3
+      }
+    ],
+    "upgrade_costs": [20, 35, 55, 80, 110],
+    "note": "Turn-based adaptation values. Rarity bonus and manual +N upgrade are separate and both contribute to deterministic weapon damage."
   },
   "floor_progression": {
     "total_floors": 20,
