@@ -88,7 +88,13 @@ enum NameFormat {
 
 
 func get_name(format: NameFormat = NameFormat.PLAIN, with_quantity: bool = true) -> String:
-	var prefix := Utils.with_sign(enhancement) + " " if is_weapon() or is_armor() else ""
+	var prefix := ""
+	if has_meta("night_weapon"):
+		var upgrade := NightRun.weapon_upgrade_level(self)
+		var upgrade_text := "+%d " % upgrade if upgrade > 0 else ""
+		prefix = "[%s] %s" % [NightRun.weapon_rarity_label(self), upgrade_text]
+	elif is_weapon() or is_armor():
+		prefix = Utils.with_sign(enhancement) + " "
 	var n := prefix + name
 	var quantity_str := " ⨯ %d" % quantity if quantity > 1 and with_quantity else ""
 
@@ -124,6 +130,12 @@ func _get_nightreign_weapon_info() -> String:
 	var profile: Dictionary = NightRun.weapon_archetype(weapon_id)
 	var entry: Dictionary = NightRun.data.weapons[weapon_id]
 	var lines: Array[String] = [get_name(NameFormat.PLAIN), ""]
+	var upgrade := NightRun.weapon_upgrade_level(self)
+	var cap := NightRun.weapon_upgrade_cap(self)
+	var cost := NightRun.weapon_upgrade_cost(self)
+	lines.append("Rarity: %s (+%d damage)" % [NightRun.weapon_rarity_label(self), NightRun.weapon_rarity_bonus(self)])
+	lines.append("Upgrade: +%d / +%d" % [upgrade, cap])
+	lines.append("Next upgrade: %s" % ("MAX" if cost < 0 else "%d runes at a Site of Grace" % cost))
 	lines.append("Archetype: %s" % String(profile.get("label", "Weapon")))
 	lines.append("Attack: %s" % _nightreign_attack_summary(profile))
 	if profile.has("cast"):

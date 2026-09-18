@@ -99,6 +99,10 @@ func _update_contents() -> void:
 	icon.texture = ItemTiles.get_texture(_item.sprite_name)
 	var text := _item.get_name(Item.NameFormat.PLAIN)
 	label.text = text
+	if _item.has_meta("night_weapon"):
+		label.add_theme_color_override("font_color", NightRun.weapon_rarity_color(_item))
+	else:
+		label.remove_theme_color_override("font_color")
 	tooltip_text = _item.get_info()
 
 	# Set prefix based on nesting depth

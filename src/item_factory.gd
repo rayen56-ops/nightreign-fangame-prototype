@@ -310,6 +310,7 @@ static func clone(item: Item) -> Item:
 	new_item.ammo_type = item.ammo_type
 	new_item.max_stack_size = item.max_stack_size
 	new_item.armor_class = item.armor_class
+	new_item.enhancement = item.enhancement
 	new_item.resistances = item.resistances
 	new_item.aoe_config = item.aoe_config
 	new_item.is_armed = item.is_armed

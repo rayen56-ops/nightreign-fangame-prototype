@@ -17,6 +17,7 @@ const Sections := {
 		Item.Type.SPEAR,
 		Item.Type.HAMMER,
 		Item.Type.GUN,
+		Item.Type.WAND,
 		Item.Type.THROWABLE,
 		Item.Type.GRENADE,
 	],
