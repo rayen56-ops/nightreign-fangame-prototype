@@ -56,6 +56,14 @@ func _ready() -> void:
 	if monster == World.player:
 		nightreign_visual = preload("res://src/nightreign/characters/wylder_visual.gd").new()
 		add_child(nightreign_visual)
+	elif monster.has_meta("night_enemy"):
+		var enemy_id := String(monster.get_meta("night_enemy", ""))
+		if NightEnemyVisualProfile.supports(enemy_id):
+			var enemy_visual := preload("res://src/nightreign/enemies/night_enemy_visual.gd").new()
+			enemy_visual.setup(enemy_id, bool(monster.get_meta("night_elite", false)))
+			nightreign_visual = enemy_visual
+			add_child(nightreign_visual)
+			nightreign_visual.face(Vector2i.LEFT if character.flip_h else Vector2i.RIGHT)
 
 	(character.material as ShaderMaterial).set_shader_parameter("hop_progress", 0.0)
 
