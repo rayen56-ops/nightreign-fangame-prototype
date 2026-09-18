@@ -143,6 +143,156 @@ func weapon_sprite_name(id: String) -> StringName:
 	assert(weapon_profiles.sprites.has(id), "Missing weapon sprite mapping: %s" % id)
 	return StringName(String(weapon_profiles.sprites[id]))
 
+func weapon_progression() -> Dictionary:
+	return data.weapon_progression
+
+
+func weapon_rarity_data(rarity_id: String) -> Dictionary:
+	var rarities: Dictionary = weapon_progression().rarities
+	if not rarities.has(rarity_id):
+		rarity_id = "common"
+	return rarities[rarity_id]
+
+
+func weapon_rarity(item: Item) -> String:
+	if item == null or not item.has_meta("night_weapon"):
+		return "common"
+	return String(item.get_meta("night_rarity", "common"))
+
+
+func weapon_rarity_label(item: Item) -> String:
+	return String(weapon_rarity_data(weapon_rarity(item)).label)
+
+
+func weapon_rarity_color(item: Item) -> Color:
+	return Color(String(weapon_rarity_data(weapon_rarity(item)).color))
+
+
+func weapon_upgrade_level(item: Item) -> int:
+	if item == null or not item.has_meta("night_weapon"):
+		return 0
+	return maxi(0, int(item.get_meta("night_upgrade", 0)))
+
+
+func weapon_upgrade_cap(item: Item) -> int:
+	return int(weapon_rarity_data(weapon_rarity(item)).max_upgrade)
+
+
+func weapon_rarity_bonus(item: Item) -> int:
+	return int(weapon_rarity_data(weapon_rarity(item)).damage_bonus)
+
+
+func weapon_total_bonus(item: Item) -> int:
+	return weapon_rarity_bonus(item) + weapon_upgrade_level(item)
+
+
+func _sync_weapon_enhancement(item: Item) -> void:
+	if item == null or not item.has_meta("night_weapon"):
+		return
+	item.enhancement = weapon_total_bonus(item)
+
+
+func weapon_drop_band(depth: int) -> Dictionary:
+	var selected: Dictionary = {}
+	for raw_band: Variant in weapon_progression().drop_bands:
+		var band: Dictionary = raw_band
+		if depth < int(band.from_floor):
+			continue
+		selected = band
+	return selected
+
+
+func weapon_rarity_weights(depth: int) -> Dictionary:
+	var band := weapon_drop_band(depth)
+	return (band.get("weights", {}) as Dictionary).duplicate(true)
+
+
+func roll_weapon_rarity(depth: int) -> String:
+	var weights := weapon_rarity_weights(depth)
+	if weights.is_empty():
+		return "common"
+	var total := 0
+	for raw_weight: Variant in weights.values():
+		total += maxi(0, int(raw_weight))
+	if total <= 0:
+		return "common"
+	var pick := randi_range(1, total)
+	var running := 0
+	for rarity_id: Variant in weights.keys():
+		running += maxi(0, int(weights[rarity_id]))
+		if pick <= running:
+			return String(rarity_id)
+	return "common"
+
+
+func make_weapon_drop(id: String, depth: int) -> Item:
+	var band := weapon_drop_band(depth)
+	var rarity := roll_weapon_rarity(depth)
+	var min_upgrade := int(band.get("upgrade_min", 0))
+	var max_upgrade := int(band.get("upgrade_max", min_upgrade))
+	var upgrade := randi_range(min_upgrade, max_upgrade)
+	var cap := int(weapon_rarity_data(rarity).max_upgrade)
+	return make_weapon(id, rarity, mini(upgrade, cap))
+
+
+func weapon_upgrade_cost(item: Item) -> int:
+	if item == null or not item.has_meta("night_weapon"):
+		return -1
+	var level := weapon_upgrade_level(item)
+	if level >= weapon_upgrade_cap(item):
+		return -1
+	var costs: Array = weapon_progression().upgrade_costs
+	if level < 0 or level >= costs.size():
+		return -1
+	return int(costs[level])
+
+
+func is_at_grace(map: Map) -> bool:
+	if map == null or World.player == null:
+		return false
+	var player_pos := map.find_monster_position(World.player)
+	if player_pos == Utils.INVALID_POS:
+		return false
+	return map.get_stairs_type(player_pos) == Obstacle.Type.STAIRS_UP
+
+
+func can_upgrade_weapon(item: Item, map: Map) -> bool:
+	if item == null or not item.has_meta("night_weapon"):
+		return false
+	if World.player == null or not World.player.has_item(item):
+		return false
+	if not is_at_grace(map):
+		return false
+	var cost := weapon_upgrade_cost(item)
+	return cost >= 0 and runes >= cost
+
+
+func upgrade_weapon(item: Item, map: Map, result: ActionResult) -> bool:
+	if item == null or not item.has_meta("night_weapon"):
+		result.message = "Only Nightreign weapons can be upgraded."
+		return false
+	if World.player == null or not World.player.has_item(item):
+		result.message = "You do not have that weapon."
+		return false
+	if not is_at_grace(map):
+		result.message = "Weapon upgrades are only available at a Site of Grace."
+		return false
+	var cost := weapon_upgrade_cost(item)
+	if cost < 0:
+		result.message = "%s is already at its upgrade cap." % item.name
+		return false
+	if runes < cost:
+		result.message = "Not enough runes: %d required." % cost
+		return false
+	runes -= cost
+	var next_level := weapon_upgrade_level(item) + 1
+	item.set_meta("night_upgrade", next_level)
+	_sync_weapon_enhancement(item)
+	result.message = "%s strengthened to +%d for %d runes." % [item.name, next_level, cost]
+	result.message_level = LogMessages.Level.GOOD
+	return true
+
+
 func _item_type_from_name(type_name: String) -> int:
 	match type_name:
 		"SWORD": return Item.Type.SWORD
@@ -167,14 +317,19 @@ func _damage_type_from_name(type_name: String) -> int:
 	push_error("Unsupported Nightreign damage type: %s" % type_name)
 	return Damage.Type.BLUNT
 
-func make_weapon(id: String) -> Item:
+func make_weapon(id: String, rarity_id: String = "common", upgrade: int = 0) -> Item:
 	var entry: Dictionary = data.weapons[id]
 	var archetype_id := weapon_archetype_id(id)
 	var archetype: Dictionary = weapon_archetype(id)
+	if not weapon_progression().rarities.has(rarity_id):
+		rarity_id = "common"
 	var item := Item.new(true)
 	item.set_meta("night_weapon", id)
 	item.set_meta("night_archetype", archetype_id)
 	item.set_meta("night_affinity", String(entry.affinity))
+	item.set_meta("night_rarity", rarity_id)
+	var cap := int(weapon_rarity_data(rarity_id).max_upgrade)
+	item.set_meta("night_upgrade", clampi(upgrade, 0, cap))
 	item.name = entry.name
 	item.type = _item_type_from_name(String(archetype.item_type))
 	item.skill_type = _skill_type_from_name(String(archetype.skill_type))
@@ -182,6 +337,7 @@ func make_weapon(id: String) -> Item:
 	item.damage_types = [_damage_type_from_name(String(archetype.damage_type))]
 	item.sprite_name = weapon_sprite_name(id)
 	item._mass = 0.0
+	_sync_weapon_enhancement(item)
 	return item
 
 func weapon_damage(item: Item, character_id: String = "") -> int:
@@ -193,7 +349,7 @@ func weapon_damage(item: Item, character_id: String = "") -> int:
 	var total := float(entry.base)
 	for stat: String in entry.scaling:
 		total += float(data.grades[data.characters[character_id].grades[stat]]) * float(data.scaling[entry.scaling[stat]])
-	return roundi(total) + item.enhancement
+	return roundi(total) + weapon_total_bonus(item)
 
 func weapon_damage_type(item: Item) -> int:
 	if item == null or not item.has_meta("night_weapon"):
@@ -209,7 +365,7 @@ func weapon_description(item: Item) -> String:
 	for stat: String in entry.scaling:
 		parts.append(stat + " " + entry.scaling[stat])
 	var profile: Dictionary = weapon_archetype(String(item.get_meta("night_weapon")))
-	return "Archetype: %s\nScaling: %s\nAffinity: %s\nYour attack: %d\nNo stat requirement." % [profile.label, ", ".join(parts), entry.affinity, weapon_damage(item)]
+	return "Rarity: %s\nUpgrade: +%d/%d\nArchetype: %s\nScaling: %s\nAffinity: %s\nYour attack: %d\nNo stat requirement." % [weapon_rarity_label(item), weapon_upgrade_level(item), weapon_upgrade_cap(item), profile.label, ", ".join(parts), entry.affinity, weapon_damage(item)]
 
 func spawn_enemy(id: String, map: Map, pos: Vector2i, depth: int = -1, force_elite: bool = false) -> Monster:
 	var entry: Dictionary = data.enemies[id]
@@ -286,10 +442,10 @@ func prepare_map(map: Map) -> void:
 	var weapon_ids: Array = data.weapons.keys()
 	for i in mini(floor_weapon_drops(map.depth), floors.size()):
 		var weapon_id := String(weapon_ids[randi_range(0, weapon_ids.size() - 1)])
-		map.add_item(floors.pop_back(), make_weapon(weapon_id))
+		map.add_item(floors.pop_back(), make_weapon_drop(weapon_id, map.depth))
 	# Preserve a fair boss-prep route without handing out Holy on every floor.
 	if map.depth == boss_floor() - 1:
-		map.add_item(start, make_weapon("sacred_blade"))
+		map.add_item(start, make_weapon("sacred_blade", "rare", 2))
 
 	for i in mini(floor_warming_stones(map.depth), floors.size()):
 		var bolus := Item.new(true)
